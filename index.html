@@ -2,21 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>MutukuERP — Odoo Lite (Full)</title>
+  <title>MutukuERP — Odoo Lite (All-in-One)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <!-- Load Supabase as ESM to avoid Edge tracking warnings -->
+  <!-- Supabase ESM loader -->
   <script type="module">
     import * as supabaseLib from 'https://esm.sh/@supabase/supabase-js@2';
-    // expose factory
     window.SupabaseCreateClient = supabaseLib.createClient;
   </script>
 
+  <!-- PDF libraries for client-side export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
   <style>
-    /* Odoo-lite clean theme */
     :root{
       --bg:#f5f7fb; --card:#fff; --muted:#6b7785; --accent:#0b63ff;
-      --sidebar-bg:#ffffff; --sidebar-border:#eef2f7;
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:var(--bg);color:#111}
@@ -24,7 +25,7 @@
     .brand{font-weight:700;margin-right:18px}
     .small{font-size:13px;color:var(--muted)}
     .container{display:flex;height:calc(100vh - 60px)}
-    .sidebar{width:240px;background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);padding:18px;box-sizing:border-box;overflow:auto}
+    .sidebar{width:240px;background:#fff;border-right:1px solid #eef2f7;padding:18px;overflow:auto}
     .menu{display:flex;flex-direction:column;gap:6px;margin-top:10px}
     .menu button{background:transparent;border:none;padding:10px 12px;border-radius:8px;text-align:left;cursor:pointer;font-size:15px;color:#222}
     .menu button.active{background:#eef5ff;color:var(--accent);font-weight:600}
@@ -41,8 +42,9 @@
     table{width:100%;border-collapse:collapse}
     th,td{padding:8px;border-bottom:1px solid #f0f2f5;text-align:left}
     .mono{font-family:monospace;background:#f2f6fb;padding:3px 6px;border-radius:6px}
-    pre#log{height:260px;overflow:auto;background:#fbfdff;padding:8px;border-radius:8px}
+    pre#log{height:240px;overflow:auto;background:#fbfdff;padding:8px;border-radius:8px}
     .muted{color:var(--muted)}
+    label.small{font-size:12px;color:var(--muted)}
     @media(max-width:900px){ .sidebar{display:none} .grid-3{grid-template-columns:1fr} }
   </style>
 </head>
@@ -50,7 +52,7 @@
 
   <div class="topbar">
     <div class="brand">MutukuERP</div>
-    <div class="small muted">Odoo Lite — Accounting ERP</div>
+    <div class="small muted">Odoo Lite — Full ERP</div>
     <div style="flex:1"></div>
     <div id="auth-info" class="small muted">Not signed in</div>
   </div>
@@ -72,6 +74,7 @@
         <button data-view="products">Products</button>
         <button data-view="accounting">Accounting</button>
         <button data-view="reports">Reports</button>
+        <button data-view="reconcile">Bank Reconciliation</button>
         <button data-view="settings">Settings</button>
       </div>
 
@@ -120,7 +123,7 @@
           </div>
 
           <div class="card">
-            <h4>Create Invoice</h4>
+            <h4>Create Invoice (atomic)</h4>
             <div class="row">
               <input id="inv-id" placeholder="Invoice ID" />
               <input id="inv-date" type="date" />
@@ -128,9 +131,10 @@
             <div class="row" style="margin-top:8px">
               <select id="inv-customer"><option value="">Choose customer</option></select>
               <input id="inv-amount" type="number" placeholder="Amount" />
-              <button id="btn-add-invoice" class="btn">Create</button>
+              <button id="btn-add-invoice" class="btn">Create (RPC)</button>
+              <button id="btn-export-invoice" class="btn ghost">Export PDF</button>
             </div>
-            <div style="margin-top:8px" class="small muted">On create, a journal entry posts DR AR / CR Sales</div>
+            <div style="margin-top:8px" class="small muted">On create, an atomic RPC posts invoice + JE</div>
           </div>
 
           <div class="card">
@@ -145,7 +149,7 @@
         <h3>Payments & Allocation</h3>
         <div class="grid-3" style="margin-top:12px">
           <div class="card">
-            <h4>Record Payment</h4>
+            <h4>Record Payment (atomic)</h4>
             <div class="row">
               <input id="pay-id" placeholder="Payment ID" />
               <input id="pay-date" type="date" />
@@ -153,9 +157,10 @@
             <div class="row" style="margin-top:8px">
               <select id="pay-customer"><option value="">Partner</option></select>
               <input id="pay-amount" type="number" placeholder="Amount" />
-              <button id="btn-add-payment" class="btn">Record</button>
+              <select id="pay-type"><option>Customer</option><option>Supplier</option></select>
+              <button id="btn-add-payment" class="btn">Record (RPC)</button>
             </div>
-            <div class="small muted" style="margin-top:8px">Recording payment creates JE DR Bank / CR AR</div>
+            <div class="small muted" style="margin-top:8px">RPC posts JE DR Bank / CR AR (or reverse for supplier)</div>
           </div>
 
           <div class="card">
@@ -170,7 +175,7 @@
               <button id="btn-load-invoices" class="btn ghost">Load invoices</button>
             </div>
             <div id="alloc-invoices" style="margin-top:8px"></div>
-            <div style="margin-top:8px"><button id="btn-apply-allocation" class="btn">Apply allocation</button></div>
+            <div style="margin-top:8px"><button id="btn-apply-allocation" class="btn">Apply allocation (RPC)</button></div>
           </div>
         </div>
       </div>
@@ -180,7 +185,7 @@
         <h3>Purchases (Supplier Bills)</h3>
         <div class="grid-3" style="margin-top:12px">
           <div class="card">
-            <h4>Create Bill</h4>
+            <h4>Create Bill (atomic)</h4>
             <div class="row">
               <input id="bill-id" placeholder="Bill ID" />
               <input id="bill-date" type="date" />
@@ -188,9 +193,8 @@
             <div class="row" style="margin-top:8px">
               <input id="supplier-id" placeholder="Supplier ID (S0001)" />
               <input id="bill-amount" type="number" placeholder="Amount" />
-              <button id="btn-add-bill" class="btn">Create Bill</button>
+              <button id="btn-add-bill" class="btn">Create Bill (RPC)</button>
             </div>
-            <div class="small muted" style="margin-top:8px">Creates JE DR Expense / CR AP</div>
           </div>
 
           <div class="card">
@@ -207,7 +211,7 @@
             <div class="row" style="margin-top:8px">
               <select id="supplier-select"><option value="">Choose bill</option></select>
               <input id="supplier-pay-amount" type="number" placeholder="Amount" />
-              <button id="btn-add-supp-payment" class="btn">Record</button>
+              <button id="btn-add-supp-payment" class="btn">Record (RPC)</button>
             </div>
           </div>
         </div>
@@ -215,7 +219,7 @@
 
       <!-- Products -->
       <div id="view-products" class="view hidden">
-        <h3>Products</h3>
+        <h3>Products & Stock</h3>
         <div class="card">
           <div class="row">
             <input id="prod-sku" placeholder="SKU" />
@@ -249,21 +253,69 @@
         </div>
       </div>
 
-      <div id="view-reports" class="view hidden card"><h3>Reports</h3><div class="small muted">Coming soon</div></div>
-      <div id="view-settings" class="view hidden card"><h3>Settings</h3><div class="small muted">App settings</div></div>
+      <!-- Reports -->
+      <div id="view-reports" class="view hidden card">
+        <h3>Reports</h3>
+        <div style="margin-bottom:10px"><button id="btn-ar-aging" class="btn ghost">Load AR Aging</button> <button id="btn-sales-report" class="btn ghost">Sales this month</button></div>
+        <div id="reports-area" class="small muted"></div>
+      </div>
+
+      <!-- Bank Reconciliation -->
+      <div id="view-reconcile" class="view hidden">
+        <h3>Bank Reconciliation</h3>
+        <div class="card">
+          <div class="row">
+            <input id="rec-bank-account" placeholder="Bank account name" />
+            <input id="rec-date" type="date" />
+            <input id="rec-statement-balance" placeholder="Statement balance" type="number" />
+            <button id="btn-create-recon" class="btn">Create</button>
+          </div>
+          <div style="margin-top:8px" class="small muted">Upload statement lines later — For now you can create a reconciliation and match by JE.</div>
+          <div id="recon-list" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Settings / Company Profile -->
+      <div id="view-settings" class="view hidden card">
+        <h3>Settings & Company Profile</h3>
+        <div class="row">
+          <input id="company-name" placeholder="Company name" style="width:60%" />
+          <input id="company-pin" placeholder="PIN / Tax ID" style="width:35%" />
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input id="company-email" placeholder="Email" style="width:48%" />
+          <input id="company-phone" placeholder="Phone" style="width:48%" />
+        </div>
+        <div class="row" style="margin-top:8px">
+          <textarea id="company-address" placeholder="Address" style="width:100%;height:80px"></textarea>
+        </div>
+        <div style="margin-top:8px">
+          <input id="company-logo" placeholder="Logo URL" style="width:100%" />
+        </div>
+        <div style="margin-top:8px">
+          <button id="btn-save-company" class="btn">Save Company Profile</button>
+          <button id="btn-load-company" class="btn ghost">Load</button>
+        </div>
+      </div>
 
     </div>
   </div>
 
 <script>
-/* ---------- Utility & State ---------- */
+/* =========================
+   MutukuERP — All-in-One client
+   Expects your Supabase schema & RPCs to exist:
+   - Tables: customers, sales_invoices, payments, allocations, purchase_bills, products, chart_of_accounts, journal_entries, trial_balance, company_profile, activity_log, bank_reconciliations, bank_reconciliation_lines
+   - RPCs: post_invoice, post_payment, post_bill, allocate_payment_atomic
+   ========================= */
+
 function log(msg){
   const box = document.getElementById('log');
   box.textContent = new Date().toLocaleTimeString() + ' — ' + msg + "\n" + box.textContent;
 }
 let client = null;
 
-/* ---------- Menu navigation ---------- */
+/* ----------------- menu ----------------- */
 document.querySelectorAll('#menu button').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('#menu button').forEach(x=>x.classList.remove('active'));
@@ -274,62 +326,81 @@ document.querySelectorAll('#menu button').forEach(b=>{
   });
 });
 
-/* ---------- Initialize Supabase ---------- */
+/* ----------------- Initialize supabase client ----------------- */
 document.getElementById('btn-init').onclick = async () => {
   const url = document.getElementById('supabase-url').value.trim();
   const key = document.getElementById('supabase-key').value.trim();
   if(!url || !key) return alert('Enter SUPABASE_URL and SUPABASE_ANON_KEY');
 
-  if(!window.SupabaseCreateClient) return alert('Supabase loader not available');
-
+  if(!window.SupabaseCreateClient) return alert('Supabase loader missing');
   client = window.SupabaseCreateClient(url, key);
   log('Supabase client created.');
 
-  // Attempt to seed COA (safe upsert)
-  await seedChartOfAccounts();
-
-  // connection test and initialize modules
-  const { error } = await client.from('customers').select('*').limit(1);
-  if(error){ log('Connection test error: ' + error.message); }
-  else {
-    log('Connected to Supabase successfully.');
-    afterConnectInit();
-  }
+  // test connectivity
+  try{
+    const { error } = await client.from('customers').select('*').limit(1);
+    if(error){ log('Connection test error: ' + error.message); }
+    else {
+      log('Connected to Supabase successfully.');
+      initAfterConnect();
+    }
+  }catch(e){ log('Init error: ' + e.message); }
 };
 
-/* ---------- Seed Chart of Accounts if missing ---------- */
-async function seedChartOfAccounts(){
-  if(!window.confirm) return;
-  try{
-    const rows = [
-      { account_code:'1000', account_name:'Cash on Hand', account_type:'Asset', reconciliable:true },
-      { account_code:'1020', account_name:'Bank Account', account_type:'Asset', reconciliable:true },
-      { account_code:'1100', account_name:'Accounts Receivable', account_type:'Asset', reconciliable:true },
-      { account_code:'2000', account_name:'Accounts Payable', account_type:'Liability', reconciliable:true },
-      { account_code:'4000', account_name:'Sales Revenue', account_type:'Income', reconciliable:false },
-      { account_code:'5000', account_name:'Cost of Goods Sold', account_type:'Expense', reconciliable:false }
-    ];
-    // upsert on account_code
-    await client.from('chart_of_accounts').upsert(rows, { onConflict:['account_code'] });
-    log('Chart of Accounts seeding attempted.');
-  }catch(e){ log('Seed COA failed: ' + e.message); }
-}
-
-/* ---------- After client ready: wire auth & load modules ---------- */
-function afterConnectInit(){
+/* ----------------- After client ready ----------------- */
+function initAfterConnect(){
   wireAuth();
+  // load UI data
   loadCustomers();
   loadInvoices();
   loadPayments();
   loadBills();
   loadProducts();
   loadCOA();
-  loadJournalEntries_Render();
+  loadJournalEntries();
   loadTrialBalance();
   refreshDashboard();
+  loadCompanyProfile();
 }
 
-/* ========== AUTH ========== */
+/* =========================
+   RPC helpers (call server functions)
+   ========================= */
+async function rpc_postInvoice(invoice_id, invoice_date, customer_id, amount){
+  if(!client) throw new Error('Init client first');
+  const { data, error } = await client.rpc('post_invoice', { p_invoice_id: invoice_id, p_invoice_date: invoice_date, p_customer_id: customer_id, p_amount: amount });
+  if(error) throw error;
+  log('RPC post_invoice OK: ' + invoice_id);
+  return data;
+}
+
+async function rpc_postPayment(payment_id, payment_date, partner_id, partner_type, amount){
+  if(!client) throw new Error('Init client first');
+  const { data, error } = await client.rpc('post_payment', { p_payment_id: payment_id, p_payment_date: payment_date, p_partner_id: partner_id, p_partner_type: partner_type, p_amount: amount });
+  if(error) throw error;
+  log('RPC post_payment OK: ' + payment_id);
+  return data;
+}
+
+async function rpc_postBill(bill_id, bill_date, supplier_id, amount){
+  if(!client) throw new Error('Init client first');
+  const { data, error } = await client.rpc('post_bill', { p_bill_id: bill_id, p_bill_date: bill_date, p_supplier_id: supplier_id, p_amount: amount });
+  if(error) throw error;
+  log('RPC post_bill OK: ' + bill_id);
+  return data;
+}
+
+async function rpc_allocatePayment(payment_id, allocationsArray){
+  if(!client) throw new Error('Init client first');
+  const { data, error } = await client.rpc('allocate_payment_atomic', { p_payment_id: payment_id, p_allocations: JSON.stringify(allocationsArray) });
+  if(error) throw error;
+  log('RPC allocate OK: ' + payment_id);
+  return data;
+}
+
+/* =========================
+   AUTH
+   ========================= */
 function wireAuth(){
   const emailEl = document.getElementById('email');
   const passEl = document.getElementById('password');
@@ -385,7 +456,9 @@ function wireAuth(){
   }
 }
 
-/* ========= CUSTOMERS ========= */
+/* =========================
+   CUSTOMERS
+   ========================= */
 async function loadCustomers(){
   if(!client) return;
   try{
@@ -418,11 +491,12 @@ document.getElementById('btn-add-customer').onclick = async ()=>{
   if(error) { alert(error.message); log('Add customer error: ' + error.message); return; }
   log('Customer added: ' + id);
   document.getElementById('cust-id').value=''; document.getElementById('cust-name').value='';
-  loadCustomers();
-  refreshDashboard();
+  loadCustomers(); refreshDashboard();
 };
 
-/* ========= INVOICES (Sales) & JE posting ========= */
+/* =========================
+   INVOICES (call RPC)
+   ========================= */
 async function loadInvoices(){
   if(!client) return;
   try{
@@ -443,25 +517,48 @@ document.getElementById('btn-add-invoice').onclick = async ()=>{
   const customer_id = document.getElementById('inv-customer').value;
   const amount = parseFloat(document.getElementById('inv-amount').value || '0');
   if(!invoice_id || !invoice_date || !customer_id || !amount) return alert('Fill invoice fields');
-
-  const payload = { invoice_id, invoice_date, customer_id, total_amount: amount, residual: amount, status:'Posted' };
-  const { error } = await client.from('sales_invoices').insert([payload]);
-  if(error){ alert(error.message); log('Create invoice error: ' + error.message); return; }
-  log('Invoice created: ' + invoice_id);
-
-  // Post JE: DR Accounts Receivable 1100, CR Sales Revenue 4000
-  const jeId = 'JE-INV-' + invoice_id;
-  await client.from('journal_entries').insert([
-    { je_id:jeId, line_no:1, je_date:invoice_date, account_code:'1100', account_name:'Accounts Receivable', partner_id:customer_id, debit:amount, credit:0, narration:'Invoice ' + invoice_id, source_type:'Invoice', source_id:invoice_id },
-    { je_id:jeId, line_no:2, je_date:invoice_date, account_code:'4000', account_name:'Sales Revenue', partner_id:customer_id, debit:0, credit:amount, narration:'Invoice ' + invoice_id, source_type:'Invoice', source_id:invoice_id }
-  ]);
-  log('Journal entry posted for invoice ' + invoice_id);
-
-  document.getElementById('inv-id').value=''; document.getElementById('inv-amount').value='';
-  loadInvoices(); loadJournalEntries_Render(); refreshDashboard();
+  try{
+    await rpc_postInvoice(invoice_id, invoice_date, customer_id, amount);
+    document.getElementById('inv-id').value=''; document.getElementById('inv-amount').value='';
+    await loadInvoices(); await loadJournalEntries(); refreshDashboard();
+  }catch(e){
+    alert(e.message || 'RPC error');
+    log('RPC post invoice failed: ' + (e.message||e));
+  }
 };
 
-/* ========= PAYMENTS (Customer) ========= */
+/* Export invoice PDF (simple) */
+document.getElementById('btn-export-invoice').onclick = async ()=>{
+  const invoice_id = prompt('Enter invoice id to export as PDF');
+  if(!invoice_id) return;
+  try{
+    const { data: inv } = await client.from('sales_invoices').select('*').eq('invoice_id', invoice_id).single();
+    if(!inv) return alert('Invoice not found');
+    // build a simple HTML snapshot
+    const container = document.createElement('div');
+    container.style.width = '800px';
+    container.style.padding = '20px';
+    container.style.background = '#fff';
+    container.innerHTML = `<h2>Invoice ${inv.invoice_id}</h2>
+      <p>Date: ${inv.invoice_date}</p>
+      <p>Customer: ${inv.customer_id}</p>
+      <p>Total: ${inv.total_amount}</p>
+      <p>Residual: ${inv.residual}</p>`;
+    document.body.appendChild(container);
+    const canvas = await html2canvas(container);
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+    pdf.addImage(imgData, 'PNG', 0, 0);
+    pdf.save('invoice-' + invoice_id + '.pdf');
+    container.remove();
+    log('Invoice exported: ' + invoice_id);
+  }catch(e){ alert(e.message||'Export error'); log('Export invoice err: ' + e.message); }
+};
+
+/* =========================
+   PAYMENTS (RPC)
+   ========================= */
 async function loadPayments(){
   if(!client) return;
   try{
@@ -486,26 +583,16 @@ document.getElementById('btn-add-payment').onclick = async ()=>{
   const payment_date = document.getElementById('pay-date').value;
   const partner_id = document.getElementById('pay-customer').value;
   const amount = parseFloat(document.getElementById('pay-amount').value || '0');
+  const partner_type = document.getElementById('pay-type').value || 'Customer';
   if(!payment_id || !payment_date || !partner_id || !amount) return alert('Fill payment fields');
-
-  const payload = { payment_id, payment_date, partner_id, partner_type:'Customer', amount, journal:'Bank', status:'Unallocated' };
-  const { error } = await client.from('payments').insert([payload]);
-  if(error){ alert(error.message); log('Create payment error: ' + error.message); return; }
-  log('Payment recorded: ' + payment_id);
-
-  // Post JE: DR Bank (1020) CR Accounts Receivable (1100)
-  const jeId = 'JE-PAY-' + payment_id;
-  await client.from('journal_entries').insert([
-    { je_id:jeId, line_no:1, je_date:payment_date, account_code:'1020', account_name:'Bank Account', partner_id:partner_id, debit:amount, credit:0, narration:'Payment ' + payment_id, source_type:'Payment', source_id:payment_id },
-    { je_id:jeId, line_no:2, je_date:payment_date, account_code:'1100', account_name:'Accounts Receivable', partner_id:partner_id, debit:0, credit:amount, narration:'Payment ' + payment_id, source_type:'Payment', source_id:payment_id }
-  ]);
-  log('Journal entry posted for payment ' + payment_id);
-
-  document.getElementById('pay-id').value=''; document.getElementById('pay-amount').value='';
-  loadPayments(); loadJournalEntries_Render(); refreshDashboard();
+  try{
+    await rpc_postPayment(payment_id, payment_date, partner_id, partner_type, amount);
+    document.getElementById('pay-id').value=''; document.getElementById('pay-amount').value='';
+    loadPayments(); loadJournalEntries(); refreshDashboard();
+  }catch(e){ alert(e.message||'RPC error'); log('RPC post payment failed: ' + (e.message||e)); }
 };
 
-/* ========= ALLOCATION ========= */
+/* Allocation UI */
 document.getElementById('btn-load-invoices').onclick = async ()=>{
   const paymentId = document.getElementById('alloc-payment').value;
   if(!paymentId) return alert('Select payment first');
@@ -532,31 +619,16 @@ document.getElementById('btn-apply-allocation').onclick = async ()=>{
     if(amt > 0){ allocations.push({ invoice_id: inp.dataset.inv, allocated_amount: amt }); totalAlloc += amt; }
   }
   if(allocations.length===0) return alert('Enter allocation amounts');
-
-  // load payment
-  const { data:pay } = await client.from('payments').select('*').eq('payment_id', paymentId).single();
-  if(totalAlloc > Number(pay.amount) + 0.0001) return alert('Allocated amount exceeds payment amount');
-
-  // insert allocations and update invoice residuals
-  for(const a of allocations){
-    await client.from('allocations').insert([{ allocation_id: paymentId + '-' + a.invoice_id, payment_id: paymentId, invoice_id: a.invoice_id, allocated_amount: a.allocated_amount, allocation_date: new Date().toISOString().slice(0,10) }]);
-    const { data:inv } = await client.from('sales_invoices').select('*').eq('invoice_id', a.invoice_id).single();
-    const newResidual = Number(inv.residual) - Number(a.allocated_amount);
-    await client.from('sales_invoices').update({ residual: newResidual, status: newResidual <= 0 ? 'Paid' : 'PartPaid' }).eq('invoice_id', a.invoice_id);
-    log(`Allocated ${a.allocated_amount} to ${a.invoice_id}`);
-  }
-
-  // update payment status
-  const { data: allocRows } = await client.from('allocations').select('*').eq('payment_id', paymentId);
-  const allocatedSum = (allocRows||[]).reduce((s,r)=>s + Number(r.allocated_amount), 0);
-  const payStatus = Math.abs(allocatedSum - Number(pay.amount)) < 0.005 ? 'Allocated' : (allocatedSum===0 ? 'Unallocated' : 'PartAllocated');
-  await client.from('payments').update({ status: payStatus }).eq('payment_id', paymentId);
-
-  log('Allocations applied. Payment ' + paymentId + ' status ' + payStatus);
-  loadInvoices(); loadPayments(); refreshDashboard(); loadJournalEntries_Render();
+  try{
+    await rpc_allocatePayment(paymentId, allocations);
+    log('Allocations applied via RPC');
+    loadInvoices(); loadPayments(); refreshDashboard(); loadJournalEntries(); 
+  }catch(e){ alert(e.message||'RPC allocate error'); log('RPC allocate failed: ' + (e.message||e)); }
 };
 
-/* ========= PURCHASES (Bills + JE) ========= */
+/* =========================
+   PURCHASES (RPC)
+   ========================= */
 async function loadBills(){
   if(!client) return;
   try{
@@ -577,21 +649,13 @@ document.getElementById('btn-add-bill').onclick = async ()=>{
   const supplier_id = document.getElementById('supplier-id').value.trim();
   const amount = parseFloat(document.getElementById('bill-amount').value || '0');
   if(!bill_id || !bill_date || !supplier_id || !amount) return alert('Fill bill fields');
-  const payload = { bill_id, bill_date, supplier_id, total_amount:amount, residual: amount, status:'Posted' };
-  const { error } = await client.from('purchase_bills').insert([payload]);
-  if(error){ alert(error.message); log('Create bill error: ' + error.message); return; }
-  log('Supplier bill created: ' + bill_id);
-
-  // Post JE: DR Expense 5000 / CR AP 2000
-  const jeId = 'JE-BILL-' + bill_id;
-  await client.from('journal_entries').insert([
-    { je_id:jeId, line_no:1, je_date:bill_date, account_code:'5000', account_name:'Cost of Goods Sold', partner_id:supplier_id, debit:amount, credit:0, narration:'Bill ' + bill_id, source_type:'Bill', source_id:bill_id },
-    { je_id:jeId, line_no:2, je_date:bill_date, account_code:'2000', account_name:'Accounts Payable', partner_id:supplier_id, debit:0, credit:amount, narration:'Bill ' + bill_id, source_type:'Bill', source_id:bill_id }
-  ]);
-  loadBills(); loadJournalEntries_Render(); refreshDashboard();
+  try{
+    await rpc_postBill(bill_id, bill_date, supplier_id, amount);
+    document.getElementById('bill-id').value=''; document.getElementById('bill-amount').value='';
+    loadBills(); loadJournalEntries(); refreshDashboard();
+  }catch(e){ alert(e.message||'RPC error'); log('RPC post bill failed: ' + (e.message||e)); }
 };
 
-/* Supplier payment (simple) */
 document.getElementById('btn-add-supp-payment').onclick = async ()=>{
   if(!client) return alert('Init client');
   const payId = document.getElementById('supplier-pay-id').value.trim();
@@ -599,22 +663,15 @@ document.getElementById('btn-add-supp-payment').onclick = async ()=>{
   const billSel = document.getElementById('supplier-select').value;
   const amount = parseFloat(document.getElementById('supplier-pay-amount').value || '0');
   if(!payId || !payDate || !billSel || !amount) return alert('Fill supplier payment fields');
-
-  const payload = { payment_id: payId, payment_date: payDate, partner_id: billSel, partner_type:'Supplier', amount, journal:'Bank', status:'Unallocated' };
-  const { error } = await client.from('payments').insert([payload]);
-  if(error){ alert(error.message); log('Supplier payment error: ' + error.message); return; }
-  log('Supplier payment recorded: ' + payId);
-
-  // Post JE: DR AP (2000) CR Bank (1020)
-  const jeId = 'JE-SPAY-' + payId;
-  await client.from('journal_entries').insert([
-    { je_id:jeId, line_no:1, je_date:payDate, account_code:'2000', account_name:'Accounts Payable', partner_id:billSel, debit:amount, credit:0, narration:'Supplier payment ' + payId, source_type:'SupplierPayment', source_id:payId },
-    { je_id:jeId, line_no:2, je_date:payDate, account_code:'1020', account_name:'Bank Account', partner_id:billSel, debit:0, credit:amount, narration:'Supplier payment ' + payId, source_type:'SupplierPayment', source_id:payId }
-  ]);
-  loadPayments(); loadJournalEntries_Render(); refreshDashboard();
+  try{
+    await rpc_postPayment(payId, payDate, billSel, 'Supplier', amount);
+    loadPayments(); loadJournalEntries(); refreshDashboard();
+  }catch(e){ alert(e.message||'RPC error'); log('RPC supplier payment failed: ' + (e.message||e)); }
 };
 
-/* ========= PRODUCTS ========= */
+/* =========================
+   PRODUCTS
+   ========================= */
 async function loadProducts(){
   if(!client) return;
   try{
@@ -627,7 +684,6 @@ async function loadProducts(){
     div.innerHTML = html;
   }catch(e){ log('Load products err: ' + e.message); }
 }
-
 document.getElementById('btn-add-prod')?.addEventListener('click', async ()=>{
   if(!client) return;
   const sku = document.getElementById('prod-sku').value.trim();
@@ -640,7 +696,9 @@ document.getElementById('btn-add-prod')?.addEventListener('click', async ()=>{
   loadProducts();
 });
 
-/* ========= CHART OF ACCOUNTS, JOURNAL ENTRIES, TRIAL BALANCE ========= */
+/* =========================
+   COA / Journal Entries / Trial Balance
+   ========================= */
 async function loadCOA(){
   if(!client) return;
   try{
@@ -654,7 +712,7 @@ async function loadCOA(){
   }catch(e){ log('Load COA err: ' + e.message); }
 }
 
-async function loadJournalEntries_Render(){
+async function loadJournalEntries(){
   if(!client) return;
   try{
     const { data } = await client.from('journal_entries').select('*').order('je_date',{ascending:false}).limit(500);
@@ -679,15 +737,16 @@ async function loadTrialBalance(){
     div.innerHTML = html;
   }catch(e){ log('TB load err: ' + e.message); }
 }
-document.getElementById('btn-load-trial').onclick = loadTrialBalance;
+document.getElementById('btn-load-trial')?.addEventListener('click', loadTrialBalance);
 
-/* ========= Dashboard KPIs ========= */
+/* =========================
+   Dashboard KPIs & Reports
+   ========================= */
 async function refreshDashboard(){
   if(!client) return;
   try{
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const yyyy = new Date().getFullYear();
+    const mm = String(new Date().getMonth()+1).padStart(2,'0');
     const monthStart = `${yyyy}-${mm}-01`;
     const { data:invoices } = await client.from('sales_invoices').select('total_amount').gte('invoice_date', monthStart);
     const sumSales = (invoices||[]).reduce((s,r)=>s + Number(r.total_amount||0),0);
@@ -703,8 +762,114 @@ async function refreshDashboard(){
   }catch(e){ log('Dashboard error: ' + e.message); }
 }
 
-/* ========= Utility: Refresh often ========= */
-setInterval(()=>{ if(client){ loadCustomers(); loadInvoices(); loadPayments(); loadBills(); loadProducts(); loadCOA(); loadJournalEntries_Render(); loadTrialBalance(); refreshDashboard(); } }, 45000);
+/* AR Aging (report) */
+document.getElementById('btn-ar-aging').onclick = async ()=>{
+  if(!client) return;
+  try{
+    const { data } = await client.rpc('ar_aging_report'); // optional if you create RPC; else use client.sql approach
+    // fallback if RPC not present
+    if(!data){
+      const { data: rows } = await client.rpc('ar_aging_report').catch(()=>null);
+    }
+    // If no server RPC, do simple bucket client-side:
+    const { data: invoices } = await client.from('sales_invoices').select('invoice_id,invoice_date,residual');
+    const buckets = {'0-30':0,'31-60':0,'61-90':0,'90+':0};
+    const today = new Date();
+    invoices.forEach(inv=>{
+      const invDate = new Date(inv.invoice_date);
+      const diffDays = Math.floor((today - invDate)/(1000*60*60*24));
+      if(diffDays <= 30) buckets['0-30'] += Number(inv.residual||0);
+      else if(diffDays <= 60) buckets['31-60'] += Number(inv.residual||0);
+      else if(diffDays <= 90) buckets['61-90'] += Number(inv.residual||0);
+      else buckets['90+'] += Number(inv.residual||0);
+    });
+    document.getElementById('reports-area').innerHTML = '<pre>' + JSON.stringify(buckets, null, 2) + '</pre>';
+    log('AR aging loaded (client-side)');
+  }catch(e){ log('AR aging err: ' + e.message); }
+};
+
+/* Sales this month quick report */
+document.getElementById('btn-sales-report').onclick = async ()=>{
+  if(!client) return;
+  try{
+    const yyyy = new Date().getFullYear(); const mm = String(new Date().getMonth()+1).padStart(2,'0');
+    const monthStart = `${yyyy}-${mm}-01`;
+    const { data } = await client.from('sales_invoices').select('invoice_id,total_amount').gte('invoice_date', monthStart);
+    document.getElementById('reports-area').innerHTML = '<pre>' + JSON.stringify(data||[], null, 2) + '</pre>';
+    log('Sales report loaded');
+  }catch(e){ log('Sales report err: ' + e.message); }
+};
+
+/* =========================
+   Company profile
+   ========================= */
+document.getElementById('btn-save-company').onclick = async ()=>{
+  if(!client) return alert('Init client');
+  const payload = {
+    id: 1,
+    company_name: document.getElementById('company-name').value.trim(),
+    pin: document.getElementById('company-pin').value.trim(),
+    email: document.getElementById('company-email').value.trim(),
+    phone: document.getElementById('company-phone').value.trim(),
+    address: document.getElementById('company-address').value.trim(),
+    logo_url: document.getElementById('company-logo').value.trim()
+  };
+  try{
+    await client.from('company_profile').upsert([payload], { onConflict:['id'] });
+    log('Company profile saved');
+    alert('Company profile saved');
+  }catch(e){ log('Save company err: ' + e.message); alert(e.message); }
+};
+document.getElementById('btn-load-company').onclick = loadCompanyProfile;
+async function loadCompanyProfile(){
+  if(!client) return;
+  try{
+    const { data } = await client.from('company_profile').select('*').limit(1).single();
+    if(!data) return;
+    document.getElementById('company-name').value = data.company_name || '';
+    document.getElementById('company-pin').value = data.pin || '';
+    document.getElementById('company-email').value = data.email || '';
+    document.getElementById('company-phone').value = data.phone || '';
+    document.getElementById('company-address').value = data.address || '';
+    document.getElementById('company-logo').value = data.logo_url || '';
+    log('Company profile loaded');
+  }catch(e){ log('Load company err: ' + e.message); }
+}
+
+/* =========================
+   Bank Reconciliation (basic)
+   ========================= */
+document.getElementById('btn-create-recon').onclick = async ()=>{
+  if(!client) return;
+  const bank = document.getElementById('rec-bank-account').value.trim();
+  const date = document.getElementById('rec-date').value;
+  const balance = parseFloat(document.getElementById('rec-statement-balance').value || '0');
+  if(!bank || !date) return alert('Provide bank and date');
+  try{
+    const { data, error } = await client.from('bank_reconciliations').insert([{ bank_account: bank, bank_date: date, statement_balance: balance }]);
+    if(error) throw error;
+    log('Bank reconciliation created id: ' + data[0].id);
+    loadReconciliations();
+  }catch(e){ log('Create recon err: ' + e.message); alert(e.message); }
+};
+
+async function loadReconciliations(){
+  if(!client) return;
+  try{
+    const { data } = await client.from('bank_reconciliations').select('*').order('created_at',{ascending:false});
+    const div = document.getElementById('recon-list');
+    if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No reconciliations</div>'; return; }
+    let html = '<table><thead><tr><th>ID</th><th>Bank</th><th>Date</th><th>Balance</th><th>Reconciled</th></tr></thead><tbody>';
+    data.forEach(r=> html += `<tr><td class="mono">${r.id}</td><td>${r.bank_account}</td><td>${r.bank_date}</td><td>${r.statement_balance}</td><td>${r.reconciled}</td></tr>`);
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }catch(e){ log('Load recon err: ' + e.message); }
+}
+
+/* =========================
+   Initialization periodic refresh
+   ========================= */
+setInterval(()=>{ if(client){ loadCustomers(); loadInvoices(); loadPayments(); loadBills(); loadProducts(); loadCOA(); loadJournalEntries(); loadTrialBalance(); refreshDashboard(); } }, 45000);
 
 </script>
 </body>
