@@ -2,293 +2,720 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Starter ERP (Supabase Auth Fixed)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MutukuERP — Odoo Lite (Starter)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <!-- Load Supabase from ESM (no Edge warnings) -->
+  <!-- Load Supabase as ESM to avoid tracking warnings -->
   <script type="module">
-    import * as supabaseLib from "https://esm.sh/@supabase/supabase-js@2";
+    import * as supabaseLib from 'https://esm.sh/@supabase/supabase-js@2';
     window.SupabaseCreateClient = supabaseLib.createClient;
   </script>
 
   <style>
-    body { font-family: Arial; margin:0; padding:20px; background:#f5f7fb; }
-    .card{background:#fff; padding:14px; border-radius:10px; margin-bottom:14px; box-shadow:0 6px 16px rgba(0,0,0,.08);}
-    .row{display:flex; gap:8px;}
-    input,button,select{padding:8px; border:1px solid #ccc; border-radius:6px;}
-    .grid{display:grid; grid-template-columns:1fr 320px; gap:14px;}
-    table{width:100%; border-collapse:collapse; margin-top:8px;}
-    th,td{padding:8px; border-bottom:1px solid #eee;}
-    .hidden{display:none;}
-    .muted{color:#777; font-size:13px;}
-    .mono{font-family:monospace; background:#eef; padding:2px 6px; border-radius:6px;}
+    /* --- Odoo Lite styles (clean, lightweight) --- */
+    :root{
+      --bg:#f5f7fb; --card:#fff; --muted:#6b7785; --accent:#0069ff;
+      --sidebar-bg:#ffffff; --sidebar-border:#e6e9ee;
+    }
+    body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:var(--bg);color:#111}
+    .topbar{height:60px;background:#fff;display:flex;align-items:center;padding:0 20px;box-shadow:0 1px 0 rgba(20,20,50,.04)}
+    .brand{font-weight:700;margin-right:24px}
+    .search{flex:1}
+    .container{display:flex;height:calc(100vh - 60px)}
+    .sidebar{width:220px;background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);padding:18px;box-sizing:border-box}
+    .sidebar .menu{display:flex;flex-direction:column;gap:6px}
+    .menu button{background:transparent;border:none;padding:10px 12px;border-radius:8px;text-align:left;cursor:pointer;font-size:14px;color:#222}
+    .menu button.active{background:#eef5ff;color:var(--accent);font-weight:600}
+    .content{flex:1;padding:18px;overflow:auto}
+    .card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 6px 18px rgba(20,20,50,.04);margin-bottom:14px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .row{display:flex;gap:10px;align-items:center}
+    input,select,textarea,button{font-size:14px}
+    input,select,textarea{padding:8px;border-radius:8px;border:1px solid #e2e6ee}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #f0f2f5;text-align:left}
+    .mono{font-family:monospace;background:#f2f6fb;padding:3px 6px;border-radius:6px}
+    .muted{color:var(--muted)}
+    .btn{background:var(--accent);color:white;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
+    .btn.ghost{background:transparent;color:var(--accent);border:1px solid #d6e2ff}
+    pre#log{height:260px;overflow:auto;background:#fbfdff;padding:8px;border-radius:8px}
+    .small{font-size:13px;color:var(--muted)}
+    .flex{display:flex;gap:8px;align-items:center}
+    /* responsive */
+    @media(max-width:900px){ .sidebar{display:none} .grid-3{grid-template-columns:1fr} }
   </style>
-
 </head>
 <body>
 
-<h2>Starter Accounting ERP</h2>
-<div id="auth-info" class="muted">Not signed in</div>
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand">MutukuERP</div>
+    <div class="small muted">Odoo Lite style — Accounting ERP</div>
+    <div style="flex:1"></div>
+    <div id="auth-info" class="muted small">Not signed in</div>
+    <div style="width:12px"></div>
+  </div>
 
-<div class="grid">
+  <!-- MAIN -->
+  <div class="container">
+    <div class="sidebar">
+      <div style="margin-bottom:12px">
+        <div class="small muted">Supabase Config</div>
+        <input id="supabase-url" placeholder="SUPABASE_URL" style="width:100%;margin-top:6px" />
+        <input id="supabase-key" placeholder="SUPABASE_ANON_KEY" style="width:100%;margin-top:8px" />
+        <button id="btn-init" class="btn" style="width:100%;margin-top:8px">Initialize Client</button>
+      </div>
 
-  <!-- LEFT PANEL -->
-  <div>
+      <div style="height:10px"></div>
+      <div class="menu" id="menu">
+        <button data-view="dashboard" class="active">Dashboard</button>
+        <button data-view="sales">Sales</button>
+        <button data-view="payments">Payments</button>
+        <button data-view="purchases">Purchases</button>
+        <button data-view="products">Products</button>
+        <button data-view="accounting">Accounting</button>
+        <button data-view="reports">Reports</button>
+        <button data-view="settings">Settings</button>
+      </div>
 
-    <!-- AUTH SECTION -->
-    <div class="card">
-      <h3>Authentication</h3>
-      <div id="auth-forms">
-        <div class="row">
-          <input id="email" placeholder="Email">
-          <input id="password" placeholder="Password" type="password">
-          <button id="btn-signup">Sign Up</button>
-          <button id="btn-signin">Sign In</button>
+      <div style="height:16px"></div>
+
+      <div class="card">
+        <div class="small muted">Log</div>
+        <pre id="log"></pre>
+      </div>
+
+    </div>
+
+    <div class="content" id="content">
+      <!-- content tabs will render here -->
+      <!-- DASHBOARD -->
+      <div id="view-dashboard" class="view card">
+        <h3>Dashboard</h3>
+        <div class="grid-3" id="dashboard-cards">
+          <div class="card"><h4>Sales (This month)</h4><div id="dash-sales" class="mono">—</div></div>
+          <div class="card"><h4>Collections</h4><div id="dash-collections" class="mono">—</div></div>
+          <div class="card"><h4>Receivables</h4><div id="dash-ar" class="mono">—</div></div>
+        </div>
+        <div class="card"><h4>Recent Activity</h4><div id="recent-activity" class="small muted">No activity yet</div></div>
+      </div>
+
+      <!-- SALES -->
+      <div id="view-sales" class="view hidden">
+        <div class="row" style="justify-content:space-between">
+          <h3>Sales</h3>
+          <div class="row">
+            <!-- Auth UI -->
+            <input id="email" placeholder="Email" />
+            <input id="password" placeholder="Password" type="password" />
+            <button id="btn-signup" class="btn ghost">Sign up</button>
+            <button id="btn-signin" class="btn">Sign in</button>
+            <button id="btn-signout" class="btn ghost hidden">Sign out</button>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <h4>Customers</h4>
+            <div class="row">
+              <input id="cust-id" placeholder="Customer ID (C0001)" />
+              <input id="cust-name" placeholder="Customer name" />
+              <button id="btn-add-customer" class="btn">Add</button>
+            </div>
+            <div id="customers-list" style="margin-top:10px"></div>
+          </div>
+
+          <div class="card">
+            <h4>Create Invoice</h4>
+            <div class="row">
+              <input id="inv-id" placeholder="Invoice ID" />
+              <input id="inv-date" type="date" />
+            </div>
+            <div class="row" style="margin-top:8px">
+              <select id="inv-customer"><option value="">Choose customer</option></select>
+              <input id="inv-amount" type="number" placeholder="Amount" />
+              <button id="btn-add-invoice" class="btn">Create</button>
+            </div>
+            <div style="margin-top:8px" class="small muted">On create, a journal entry posts DR AR / CR Sales</div>
+          </div>
+
+          <div class="card">
+            <h4>Sales Invoices</h4>
+            <div id="invoices-list"></div>
+          </div>
         </div>
       </div>
 
-      <div id="auth-actions" class="hidden">
-        <button id="btn-signout">Sign Out</button>
-        <button id="btn-refresh">Refresh Data</button>
+      <!-- PAYMENTS -->
+      <div id="view-payments" class="view hidden">
+        <h3>Payments & Allocation</h3>
+        <div class="grid-3">
+          <div class="card">
+            <h4>Record Payment</h4>
+            <div class="row">
+              <input id="pay-id" placeholder="Payment ID" />
+              <input id="pay-date" type="date" />
+            </div>
+            <div class="row" style="margin-top:8px">
+              <select id="pay-customer"><option value="">Partner</option></select>
+              <input id="pay-amount" type="number" placeholder="Amount" />
+              <button id="btn-add-payment" class="btn">Record</button>
+            </div>
+            <div class="small muted" style="margin-top:8px">Recording payment creates JE DR Bank / CR AR</div>
+          </div>
+
+          <div class="card">
+            <h4>Payments</h4>
+            <div id="payments-list"></div>
+          </div>
+
+          <div class="card">
+            <h4>Allocate Payment</h4>
+            <div class="row">
+              <select id="alloc-payment"><option value="">Select payment</option></select>
+              <button id="btn-load-invoices" class="btn ghost">Load invoices</button>
+            </div>
+            <div id="alloc-invoices" style="margin-top:8px"></div>
+            <div style="margin-top:8px"><button id="btn-apply-allocation" class="btn">Apply allocation</button></div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- CUSTOMERS -->
-    <div class="card">
-      <h3>Customers</h3>
-      <div class="row">
-        <input id="cust-id" placeholder="Customer ID">
-        <input id="cust-name" placeholder="Customer Name">
-        <button id="btn-add-customer">Add</button>
+      <!-- PURCHASES -->
+      <div id="view-purchases" class="view hidden">
+        <h3>Purchases (Supplier Bills)</h3>
+        <div class="grid-3">
+          <div class="card">
+            <h4>Create Bill</h4>
+            <div class="row">
+              <input id="bill-id" placeholder="Bill ID" />
+              <input id="bill-date" type="date" />
+            </div>
+            <div class="row" style="margin-top:8px">
+              <input id="supplier-id" placeholder="Supplier ID (S0001)" />
+              <input id="bill-amount" type="number" placeholder="Amount" />
+              <button id="btn-add-bill" class="btn">Create Bill</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h4>Supplier Bills</h4>
+            <div id="bills-list"></div>
+          </div>
+
+          <div class="card">
+            <h4>Pay Supplier</h4>
+            <div class="row">
+              <input id="supplier-pay-id" placeholder="Payment ID" />
+              <input id="supplier-pay-date" type="date" />
+            </div>
+            <div class="row" style="margin-top:8px">
+              <select id="supplier-select"><option value="">Choose bill</option></select>
+              <input id="supplier-pay-amount" type="number" placeholder="Amount" />
+              <button id="btn-add-supp-payment" class="btn">Record</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div id="customers-list"></div>
-    </div>
 
-    <!-- INVOICES -->
-    <div class="card">
-      <h3>Sales Invoices</h3>
-      <div class="row">
-        <input id="inv-id" placeholder="Invoice ID">
-        <input id="inv-date" type="date">
-        <select id="inv-customer"><option value="">Choose customer</option></select>
-        <input id="inv-amount" type="number" placeholder="Amount">
-        <button id="btn-add-invoice">Create</button>
+      <!-- PRODUCTS -->
+      <div id="view-products" class="view hidden">
+        <h3>Products</h3>
+        <div class="card">
+          <div class="row">
+            <input id="prod-sku" placeholder="SKU" />
+            <input id="prod-name" placeholder="Description" />
+            <input id="prod-price" type="number" placeholder="Unit price" />
+            <button id="btn-add-prod" class="btn">Add</button>
+          </div>
+          <div id="products-list" style="margin-top:8px"></div>
+        </div>
       </div>
-      <div id="invoices-list"></div>
-    </div>
 
-    <!-- PAYMENTS -->
-    <div class="card">
-      <h3>Payments</h3>
-      <div class="row">
-        <input id="pay-id" placeholder="Payment ID">
-        <input id="pay-date" type="date">
-        <select id="pay-customer"><option value="">Partner</option></select>
-        <input id="pay-amount" type="number" placeholder="Amount">
-        <select id="pay-type"><option>Customer</option><option>Supplier</option></select>
-        <button id="btn-add-payment">Record</button>
+      <!-- ACCOUNTING -->
+      <div id="view-accounting" class="view hidden">
+        <h3>Accounting</h3>
+        <div class="grid-3">
+          <div class="card">
+            <h4>Chart of Accounts</h4>
+            <div id="coa-list"></div>
+            <div style="margin-top:8px" class="small muted">Some sample accounts will be seeded if missing</div>
+          </div>
+
+          <div class="card">
+            <h4>Journal Entries</h4>
+            <div id="je-list"></div>
+          </div>
+
+          <div class="card">
+            <h4>Trial Balance</h4>
+            <button id="btn-load-trial" class="btn">Refresh</button>
+            <div id="trial-list" style="margin-top:8px"></div>
+          </div>
+        </div>
       </div>
-      <div id="payments-list"></div>
-    </div>
 
-    <!-- ALLOCATION -->
-    <div class="card">
-      <h3>Allocate Payment</h3>
-      <div class="row">
-        <select id="alloc-payment"><option value="">Select payment</option></select>
-        <button id="btn-load-invoices">Load Invoices</button>
-      </div>
-      <div id="alloc-invoices"></div>
-      <button id="btn-apply-allocation">Apply Allocation</button>
-    </div>
+      <!-- REPORTS / SETTINGS -->
+      <div id="view-reports" class="view hidden card"><h3>Reports</h3><div id="reports-area" class="small muted">Coming soon</div></div>
+      <div id="view-settings" class="view hidden card"><h3>Settings</h3><div class="small muted">App settings</div></div>
 
-    <!-- TRIAL BALANCE -->
-    <div class="card">
-      <h3>Trial Balance</h3>
-      <button id="btn-load-trial">Refresh</button>
-      <div id="trial-list"></div>
     </div>
-
   </div>
-
-  <!-- RIGHT PANEL -->
-  <div>
-
-    <!-- SUPABASE INIT -->
-    <div class="card">
-      <h3>Supabase Config</h3>
-      <input id="supabase-url" placeholder="SUPABASE_URL" style="width:100%">
-      <input id="supabase-key" placeholder="SUPABASE_ANON_KEY" style="width:100%; margin-top:6px;">
-      <button id="btn-init" style="margin-top:10px;">Initialize Client</button>
-    </div>
-
-    <!-- LOG -->
-    <div class="card">
-      <h3>Log</h3>
-      <pre id="log" style="height:300px; overflow:auto; background:#eef; padding:8px"></pre>
-    </div>
-
-  </div>
-</div>
 
 <script>
+/* ----------------------------
+   Odoo Lite — Single file app
+   Supabase client via window.SupabaseCreateClient
+   ---------------------------- */
 
-/* LOGGING */
 function log(msg){
-  document.getElementById("log").textContent += msg + "\n";
+  const box = document.getElementById('log');
+  box.textContent = msg + "\n" + box.textContent;
 }
 
+/* --- state --- */
 let client = null;
 
-/*******************************
- * INIT SUPABASE CLIENT
- *******************************/
-document.getElementById("btn-init").onclick = async () => {
-
-  const url = document.getElementById("supabase-url").value.trim();
-  const key = document.getElementById("supabase-key").value.trim();
-
-  if(!url || !key){
-    alert("Enter Supabase URL + Key first");
-    return;
-  }
-
-  // create client using ESM loader
-  client = window.SupabaseCreateClient(url, key);
-
-  log("Supabase client created.");
-
-  const { error } = await client.from("customers").select("*").limit(1);
-  if(error){
-    log("Connection error: " + error.message);
-  } else {
-    log("Connected to Supabase successfully.");
-  }
-};
-
-/*******************************
- * AUTH MODULE (WORKING)
- *******************************/
-
-/* SIGN UP */
-document.getElementById("btn-signup").onclick = async () => {
-  if(!client){ return alert("Initialize client first."); }
-
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-
-  if(!email || !password){
-    alert("Enter email and password");
-    return;
-  }
-
-  const { data, error } = await client.auth.signUp({
-    email,
-    password
+/* --- UI: menu interactions --- */
+document.querySelectorAll('#menu button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#menu button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const v = b.dataset.view;
+    document.querySelectorAll('.view').forEach(view=> view.classList.add('hidden'));
+    document.getElementById('view-' + v).classList.remove('hidden');
   });
-
-  if(error){
-    log("Sign-up error: " + error.message);
-    alert(error.message);
-    return;
-  }
-
-  log("Sign-up successful. Check your email.");
-  alert("Account created! Verify your email.");
-};
-
-/* SIGN IN */
-document.getElementById("btn-signin").onclick = async () => {
-  if(!client){ return alert("Initialize client first."); }
-
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-
-  const { data, error } = await client.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  if(error){
-    log("Sign-in error: " + error.message);
-    alert(error.message);
-    return;
-  }
-
-  log("Signed in as: " + data.user.email);
-  setUserUI(data.user);
-};
-
-/* SIGN OUT */
-document.getElementById("btn-signout").onclick = async () => {
-  await client.auth.signOut();
-  log("Signed out.");
-  setUserUI(null);
-};
-
-/* SESSION RESTORE */
-client?.auth?.onAuthStateChange((event, session) => {
-  if(session?.user){
-    setUserUI(session.user);
-  } else {
-    setUserUI(null);
-  }
 });
 
-/* UPDATE UI */
-function setUserUI(user){
-  const forms = document.getElementById("auth-forms");
-  const actions = document.getElementById("auth-actions");
-  const info = document.getElementById("auth-info");
+/* --- Initialize Supabase --- */
+document.getElementById('btn-init').onclick = async () => {
+  const url = document.getElementById('supabase-url').value.trim();
+  const key = document.getElementById('supabase-key').value.trim();
+  if(!url || !key) return alert('Enter SUPABASE_URL and SUPABASE_ANON_KEY');
 
-  if(user){
-    forms.classList.add("hidden");
-    actions.classList.remove("hidden");
-    info.textContent = "Signed in as " + user.email;
-  } else {
-    forms.classList.remove("hidden");
-    actions.classList.add("hidden");
-    info.textContent = "Not signed in";
+  client = window.SupabaseCreateClient(url, key);
+  log('Supabase client created.');
+  // seed COA if missing
+  await seedChartOfAccounts();
+  // test connection and init modules
+  const { error } = await client.from('customers').select('*').limit(1);
+  if(error) log('Connection test error: ' + error.message);
+  else{
+    log('Connected to Supabase successfully.');
+    initializeAfterConnect();
+  }
+};
+
+/* --- seed small COA --- */
+async function seedChartOfAccounts(){
+  if(!window.confirm) return;
+  try{
+    // create a few core accounts if not exist
+    const rows = [
+      { account_code:'1000', account_name:'Cash on Hand', account_type:'Asset', reconciliable:true },
+      { account_code:'1020', account_name:'Bank Account', account_type:'Asset', reconciliable:true },
+      { account_code:'1100', account_name:'Accounts Receivable', account_type:'Asset', reconciliable:true },
+      { account_code:'2000', account_name:'Accounts Payable', account_type:'Liability', reconciliable:true },
+      { account_code:'4000', account_name:'Sales Revenue', account_type:'Income', reconciliable:false },
+      { account_code:'5000', account_name:'Cost of Goods Sold', account_type:'Expense', reconciliable:false }
+    ];
+    // upsert to avoid duplicates
+    await client.from('chart_of_accounts').upsert(rows, { onConflict:['account_code'] });
+    log('Chart of Accounts seeded (if missing).');
+  }catch(e){
+    log('Seed COA error: ' + e.message);
   }
 }
 
-/*******************************
- * REMAINDER OF MODULES
- *******************************/
+/* --- initialize modules after client ready --- */
+function initializeAfterConnect(){
+  // auth
+  wireAuth();
+  // load initial data
+  loadCustomers();
+  loadInvoices();
+  loadPayments();
+  loadBills();
+  loadProducts();
+  loadCOA();
+  loadJournalEntries();
+  loadTrialBalance();
+  refreshDashboard();
+}
 
-/* LOAD CUSTOMERS */
+/* -----------------------
+   AUTH
+   ----------------------- */
+function wireAuth(){
+  const emailEl = document.getElementById('email');
+  const passEl = document.getElementById('password');
+  const btnSignup = document.getElementById('btn-signup');
+  const btnSignin = document.getElementById('btn-signin');
+  const btnSignout = document.getElementById('btn-signout');
+
+  btnSignup.onclick = async () => {
+    if(!client) return alert('Init client first');
+    const email = emailEl.value.trim(), password = passEl.value.trim();
+    if(!email || !password) return alert('Enter email and password');
+    const { data, error } = await client.auth.signUp({ email, password });
+    if(error){ alert(error.message); log('Sign up error: ' + error.message); return; }
+    alert('Account created — check email to confirm.');
+    log('Sign-up triggered for ' + email);
+  };
+
+  btnSignin.onclick = async () => {
+    if(!client) return alert('Init client first');
+    const email = emailEl.value.trim(), password = passEl.value.trim();
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if(error){ alert(error.message); log('Sign-in error: ' + error.message); return; }
+    log('Signed in as ' + data.user.email);
+    setUserUI(data.user);
+  };
+
+  btnSignout.onclick = async () => {
+    if(!client) return;
+    await client.auth.signOut();
+    setUserUI(null);
+    log('Signed out');
+  };
+
+  // session restore
+  client.auth.onAuthStateChange((event, session) => {
+    if(session && session.user) setUserUI(session.user);
+    else setUserUI(null);
+  });
+
+  function setUserUI(user){
+    const info = document.getElementById('auth-info');
+    if(user){
+      info.textContent = 'Signed in as ' + user.email;
+      document.getElementById('btn-signout').classList.remove('hidden');
+      document.getElementById('btn-signin').classList.add('hidden');
+      document.getElementById('btn-signup').classList.add('hidden');
+    } else {
+      info.textContent = 'Not signed in';
+      document.getElementById('btn-signout').classList.add('hidden');
+      document.getElementById('btn-signin').classList.remove('hidden');
+      document.getElementById('btn-signup').classList.remove('hidden');
+    }
+  }
+}
+
+/* -----------------------
+   CUSTOMERS
+   ----------------------- */
 async function loadCustomers(){
   if(!client) return;
-  const { data, error } = await client.from("customers").select("*");
-  document.getElementById("customers-list").textContent =
-    JSON.stringify(data || [], null, 2);
+  try{
+    const { data } = await client.from('customers').select('*').order('customer_id');
+    const div = document.getElementById('customers-list');
+    if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No customers yet.</div>'; return; }
+    let html = '<table><thead><tr><th>ID</th><th>Name</th></tr></thead><tbody>';
+    data.forEach(c=> html += `<tr><td class="mono">${c.customer_id}</td><td>${c.name}</td></tr>`);
+    html += '</tbody></table>';
+    div.innerHTML = html;
+    // update dropdowns
+    const invSel = document.getElementById('inv-customer');
+    const paySel = document.getElementById('pay-customer');
+    invSel.innerHTML = '<option value="">Choose customer</option>';
+    paySel.innerHTML = '<option value="">Partner</option>';
+    data.forEach(c=>{
+      invSel.add(new Option(`${c.customer_id} — ${c.name}`, c.customer_id));
+      paySel.add(new Option(`${c.customer_id} — ${c.name}`, c.customer_id));
+    });
+  }catch(e){ log('Load customers error: ' + e.message); }
 }
 
-/* LOAD INVOICES */
-async function loadInvoices(){
-  if(!client) return;
-  const { data, error } = await client.from("sales_invoices").select("*");
-  document.getElementById("invoices-list").textContent =
-    JSON.stringify(data || [], null, 2);
-}
-
-/* LOAD PAYMENTS */
-async function loadPayments(){
-  if(!client) return;
-  const { data } = await client.from("payments").select("*");
-  document.getElementById("payments-list").textContent =
-    JSON.stringify(data || [], null, 2);
-}
-
-/* LOAD TRIAL BALANCE */
-document.getElementById("btn-load-trial").onclick = async () => {
-  if(!client) return;
-  const { data } = await client.from("trial_balance").select("*");
-  document.getElementById("trial-list").textContent =
-    JSON.stringify(data || [], null, 2);
+document.getElementById('btn-add-customer').onclick = async ()=>{
+  if(!client) return alert('Init client');
+  const id = document.getElementById('cust-id').value.trim();
+  const name = document.getElementById('cust-name').value.trim();
+  if(!id || !name) return alert('Provide id and name');
+  const { error } = await client.from('customers').insert([{ customer_id:id, name }]);
+  if(error) { alert(error.message); log('Add customer error: ' + error.message); return; }
+  log('Customer added: ' + id);
+  document.getElementById('cust-id').value=''; document.getElementById('cust-name').value='';
+  loadCustomers();
 };
 
-</script>
+/* -----------------------
+   INVOICES & SALES JE
+   ----------------------- */
+async function loadInvoices(){
+  if(!client) return;
+  try{
+    const { data } = await client.from('sales_invoices').select('*').order('invoice_date',{ascending:false});
+    const div = document.getElementById('invoices-list');
+    if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No invoices yet.</div>'; return; }
+    let html = '<table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Residual</th></tr></thead><tbody>';
+    data.forEach(i=> html += `<tr><td class="mono">${i.invoice_id}</td><td>${i.invoice_date}</td><td>${i.customer_id}</td><td>${i.total_amount}</td><td>${i.residual}</td></tr>`);
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }catch(e){ log('Load invoices err: ' + e.message); }
+}
 
+document.getElementById('btn-add-invoice').onclick = async ()=>{
+  if(!client) return alert('Init client');
+  const invoice_id = document.getElementById('inv-id').value.trim();
+  const invoice_date = document.getElementById('inv-date').value;
+  const customer_id = document.getElementById('inv-customer').value;
+  const amount = parseFloat(document.getElementById('inv-amount').value || '0');
+  if(!invoice_id || !invoice_date || !customer_id || !amount) return alert('Fill invoice fields');
+  // create invoice
+  const payload = { invoice_id, invoice_date, customer_id, total_amount: amount, residual: amount, status:'Posted' };
+  const { error } = await client.from('sales_invoices').insert([payload]);
+  if(error){ alert(error.message); log('Create invoice error: ' + error.message); return; }
+  log('Invoice created: ' + invoice_id);
+  // POST JOURNAL ENTRY: DR Accounts Receivable (1100), CR Sales Revenue (4000)
+  const jeId = 'JE-INV-' + invoice_id;
+  await client.from('journal_entries').insert([
+    { je_id: jeId, line_no:1, je_date: invoice_date, account_code:'1100', account_name:'Accounts Receivable', partner_id: customer_id, debit: amount, credit:0, narration:'Invoice ' + invoice_id, source_type:'Invoice', source_id: invoice_id },
+    { je_id: jeId, line_no:2, je_date: invoice_date, account_code:'4000', account_name:'Sales Revenue', partner_id: customer_id, debit:0, credit:amount, narration:'Invoice ' + invoice_id, source_type:'Invoice', source_id: invoice_id }
+  ]);
+  log('Journal entry posted for invoice ' + invoice_id);
+  document.getElementById('inv-id').value=''; document.getElementById('inv-amount').value='';
+  loadInvoices();
+  loadJournalEntries();
+  refreshDashboard();
+};
+
+/* -----------------------
+   PAYMENTS (Customer)
+   ----------------------- */
+async function loadPayments(){
+  if(!client) return;
+  try{
+    const { data } = await client.from('payments').select('*').order('payment_date',{ascending:false});
+    const div = document.getElementById('payments-list');
+    const allocSel = document.getElementById('alloc-payment');
+    allocSel.innerHTML = '<option value="">Select payment</option>';
+    if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No payments yet.</div>'; return; }
+    let html = '<table><thead><tr><th>ID</th><th>Date</th><th>Partner</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
+    data.forEach(p=>{
+      html += `<tr><td class="mono">${p.payment_id}</td><td>${p.payment_date}</td><td>${p.partner_id}</td><td>${p.amount}</td><td>${p.status}</td></tr>`;
+      allocSel.add(new Option(`${p.payment_id} — ${p.partner_id} — ${p.amount}`, p.payment_id));
+    });
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }catch(e){ log('Load payments err: ' + e.message); }
+}
+
+document.getElementById('btn-add-payment').onclick = async ()=>{
+  if(!client) return alert('Init client');
+  const payment_id = document.getElementById('pay-id').value.trim();
+  const payment_date = document.getElementById('pay-date').value;
+  const partner_id = document.getElementById('pay-customer').value;
+  const amount = parseFloat(document.getElementById('pay-amount').value || '0');
+  if(!payment_id || !payment_date || !partner_id || !amount) return alert('Fill payment fields');
+  const payload = { payment_id, payment_date, partner_id, partner_type:'Customer', amount, journal:'Bank', status:'Unallocated' };
+  const { error } = await client.from('payments').insert([payload]);
+  if(error){ alert(error.message); log('Create payment error: ' + error.message); return; }
+  log('Payment recorded: ' + payment_id);
+  // Post JE: DR Bank (1020) CR Accounts Receivable (1100)
+  const jeId = 'JE-PAY-' + payment_id;
+  await client.from('journal_entries').insert([
+    { je_id:jeId, line_no:1, je_date:payment_date, account_code:'1020', account_name:'Bank Account', partner_id:partner_id, debit:amount, credit:0, narration:'Payment ' + payment_id, source_type:'Payment', source_id:payment_id },
+    { je_id:jeId, line_no:2, je_date:payment_date, account_code:'1100', account_name:'Accounts Receivable', partner_id:partner_id, debit:0, credit:amount, narration:'Payment ' + payment_id, source_type:'Payment', source_id:payment_id }
+  ]);
+  log('Journal entry posted for payment ' + payment_id);
+  document.getElementById('pay-id').value=''; document.getElementById('pay-amount').value='';
+  loadPayments();
+  loadJournalEntries();
+  refreshDashboard();
+};
+
+/* -----------------------
+   ALLOCATION (apply payment to invoices)
+   ----------------------- */
+document.getElementById('btn-load-invoices').onclick = async ()=>{
+  const paymentId = document.getElementById('alloc-payment').value;
+  if(!paymentId) return alert('Select payment first');
+  const { data:pay } = await client.from('payments').select('*').eq('payment_id', paymentId).single();
+  const { data: invoices } = await client.from('sales_invoices').select('*').eq('customer_id', pay.partner_id).neq('residual', 0).order('invoice_date');
+  const div = document.getElementById('alloc-invoices');
+  if(!invoices || invoices.length===0){ div.innerHTML = '<div class="small muted">No open invoices</div>'; return; }
+  let html = '<table><thead><tr><th>Invoice</th><th>Residual</th><th>Allocate</th></tr></thead><tbody>';
+  invoices.forEach(inv=> html += `<tr><td class="mono">${inv.invoice_id}</td><td>${inv.residual}</td><td><input class="alloc-input" data-inv="${inv.invoice_id}" type="number" step="0.01" max="${inv.residual}"></td></tr>`);
+  html += '</tbody></table>';
+  div.innerHTML = html;
+};
+
+document.getElementById('btn-apply-allocation').onclick = async ()=>{
+  const paymentId = document.getElementById('alloc-payment').value;
+  if(!paymentId) return alert('Select payment first');
+  const inputs = Array.from(document.querySelectorAll('.alloc-input'));
+  const allocations = [];
+  let totalAlloc = 0;
+  for(const inp of inputs){
+    const amt = parseFloat(inp.value || '0');
+    if(amt > 0){ allocations.push({ invoice_id: inp.dataset.inv, allocated_amount: amt }); totalAlloc += amt; }
+  }
+  if(allocations.length===0) return alert('Enter allocation amounts');
+  // load payment
+  const { data:pay } = await client.from('payments').select('*').eq('payment_id', paymentId).single();
+  if(totalAlloc > Number(pay.amount) + 0.0001) return alert('Allocated amount exceeds payment amount');
+  // insert allocations and update invoice residuals
+  for(const a of allocations){
+    await client.from('allocations').insert([{ allocation_id: paymentId + '-' + a.invoice_id, payment_id: paymentId, invoice_id: a.invoice_id, allocated_amount: a.allocated_amount, allocation_date: new Date().toISOString().slice(0,10) }]);
+    // adjust residual
+    const { data:inv } = await client.from('sales_invoices').select('*').eq('invoice_id', a.invoice_id).single();
+    const newResidual = Number(inv.residual) - Number(a.allocated_amount);
+    await client.from('sales_invoices').update({ residual: newResidual, status: newResidual <= 0 ? 'Paid' : 'PartPaid' }).eq('invoice_id', a.invoice_id);
+    log(`Allocated ${a.allocated_amount} to ${a.invoice_id}`);
+  }
+  // update payment status
+  const { data: allocRows } = await client.from('allocations').select('*').eq('payment_id', paymentId);
+  const allocatedSum = (allocRows||[]).reduce((s,r)=>s + Number(r.allocated_amount), 0);
+  const payStatus = Math.abs(allocatedSum - Number(pay.amount)) < 0.005 ? 'Allocated' : (allocatedSum===0 ? 'Unallocated' : 'PartAllocated');
+  await client.from('payments').update({ status: payStatus }).eq('payment_id', paymentId);
+  log('Allocations applied. Payment ' + paymentId + ' status ' + payStatus);
+  loadInvoices(); loadPayments();
+  refreshDashboard();
+};
+
+/* -----------------------
+   PURCHASES (Bills)
+   ----------------------- */
+async function loadBills(){
+  if(!client) return;
+  try{
+    const { data } = await client.from('purchase_bills').select('*').order('bill_date',{ascending:false});
+    const div = document.getElementById('bills-list');
+    if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No bills yet.</div>'; return; }
+    let html = '<table><thead><tr><th>Bill</th><th>Date</th><th>Supplier</th><th>Total</th><th>Residual</th></tr></thead><tbody>';
+    data.forEach(b=> html += `<tr><td class="mono">${b.bill_id}</td><td>${b.bill_date}</td><td>${b.supplier_id}</td><td>${b.total_amount}</td><td>${b.residual}</td></tr>`);
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }catch(e){ log('Load bills err: ' + e.message); }
+}
+document.getElementById('btn-add-bill').onclick = async ()=>{
+  if(!client) return alert('Init client');
+  const bill_id = document.getElementById('bill-id').value.trim();
+  const bill_date = document.getElementById('bill-date').value;
+  const supplier_id = document.getElementById('supplier-id').value.trim();
+  const amount = parseFloat(document.getElementById('bill-amount').value || '0');
+  if(!bill_id || !bill_date || !supplier_id || !amount) return alert('Fill bill fields');
+  const payload = { bill_id, bill_date, supplier_id, total_amount:amount, residual: amount, status:'Posted' };
+  const { error } = await client.from('purchase_bills').insert([payload]);
+  if(error){ alert(error.message); log('Create bill error: ' + error.message); return; }
+  log('Supplier bill created: ' + bill_id);
+  // post JE: DR Expense (5000) CR Accounts Payable (2000)
+  const jeId = 'JE-BILL-' + bill_id;
+  await client.from('journal_entries').insert([
+    { je_id:jeId, line_no:1, je_date:bill_date, account_code:'5000', account_name:'Cost of Goods Sold', partner_id:supplier_id, debit:amount, credit:0, narration:'Bill ' + bill_id, source_type:'Bill', source_id:bill_id },
+    { je_id:jeId, line_no:2, je_date:bill_date, account_code:'2000', account_name:'Accounts Payable', partner_id:supplier_id, debit:0, credit:amount, narration:'Bill ' + bill_id, source_type:'Bill', source_id:bill_id }
+  ]);
+  loadBills();
+  loadJournalEntries();
+};
+
+/* supplier payments (simple) */
+document.getElementById('btn-add-supp-payment').onclick = async ()=>{
+  if(!client) return alert('Init client');
+  const payId = document.getElementById('supplier-pay-id').value.trim();
+  const payDate = document.getElementById('supplier-pay-date').value;
+  const billSel = document.getElementById('supplier-select').value;
+  const amount = parseFloat(document.getElementById('supplier-pay-amount').value || '0');
+  if(!payId || !payDate || !billSel || !amount) return alert('Fill supplier payment fields');
+  const payload = { payment_id: payId, payment_date: payDate, partner_id: billSel, partner_type:'Supplier', amount, journal:'Bank', status:'Unallocated' };
+  const { error } = await client.from('payments').insert([payload]);
+  if(error){ alert(error.message); log('Supplier payment error: ' + error.message); return; }
+  log('Supplier payment recorded: ' + payId);
+  // post JE DR Accounts Payable CR Bank (opposite of customer)
+  const jeId = 'JE-SPAY-' + payId;
+  await client.from('journal_entries').insert([
+    { je_id:jeId, line_no:1, je_date:payDate, account_code:'2000', account_name:'Accounts Payable', partner_id:billSel, debit:amount, credit:0, narration:'Supplier payment ' + payId, source_type:'SupplierPayment', source_id:payId },
+    { je_id:jeId, line_no:2, je_date:payDate, account_code:'1020', account_name:'Bank Account', partner_id:billSel, debit:0, credit:amount, narration:'Supplier payment ' + payId, source_type:'SupplierPayment', source_id:payId }
+  ]);
+  loadPayments(); loadJournalEntries();
+};
+
+/* -----------------------
+   PRODUCTS
+   ----------------------- */
+async function loadProducts(){
+  if(!client) return;
+  try{
+    const { data } = await client.from('products').select('*').order('sku');
+    const div = document.getElementById('products-list');
+    if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No products yet.</div>'; return; }
+    let html = '<table><thead><tr><th>SKU</th><th>Description</th><th>Price</th></tr></thead><tbody>';
+    data.forEach(p=> html += `<tr><td class="mono">${p.sku}</td><td>${p.description}</td><td>${p.unit_price}</td></tr>`);
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }catch(e){ log('Load products err: ' + e.message); }
+}
+document.getElementById('btn-add-prod')?.addEventListener('click', async ()=>{
+  if(!client) return;
+  const sku = document.getElementById('prod-sku').value.trim();
+  const name = document.getElementById('prod-name').value.trim();
+  const price = parseFloat(document.getElementById('prod-price').value || '0');
+  if(!sku || !name) return alert('Fill product fields');
+  await client.from('products').insert([{ sku, description:name, unit_price:price }]);
+  log('Product added: ' + sku);
+  loadProducts();
+});
+
+/* -----------------------
+   COA, Journal Entries, Trial Balance
+   ----------------------- */
+async function loadCOA(){ if(!client) return; try{ const { data } = await client.from('chart_of_accounts').select('*').order('account_code'); const div = document.getElementById('coa-list'); if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No chart of accounts found.</div>'; return; } let html = '<table><thead><tr><th>Code</th><th>Name</th><th>Type</th></tr></thead><tbody>'; data.forEach(r=> html += `<tr><td class="mono">${r.account_code}</td><td>${r.account_name}</td><td>${r.account_type}</td></tr>`); html += '</tbody></table>'; div.innerHTML = html; }catch(e){ log('Load COA err: ' + e.message); } }
+
+async function loadJournalEntries(){ if(!client) return; try{ const { data } = await client.from('journal_entries').select('*').order('je_date',{ascending:false}).limit(200); const div = document.getElementById('je-list'); if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No journal entries</div>'; return; } // group by je_id let html = '<table><thead><tr><th>JE</th><th>Date</th><th>Account</th><th>Debit</th><th>Credit</th></tr></thead><tbody>'; data.forEach(r=> html += `<tr><td class="mono">${r.je_id}</td><td>${r.je_date}</td><td>${r.account_code} ${r.account_name||''}</td><td>${r.debit||0}</td><td>${r.credit||0}</td></tr>`); html += '</tbody></table>'; div.innerHTML = html; }catch(e){ log('Load JE err: ' + e.message); } }
+
+async function loadTrialBalance(){ if(!client) return; try{ const { data } = await client.from('trial_balance').select('*').order('account_code'); const div = document.getElementById('trial-list'); if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No TB rows</div>'; return; } let html = '<table><thead><tr><th>Account</th><th>Name</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>'; data.forEach(r=> html += `<tr><td class="mono">${r.account_code}</td><td>${r.account_name}</td><td>${r.debit_total||0}</td><td>${r.credit_total||0}</td><td>${r.balance||0}</td></tr>`); html += '</tbody></table>'; div.innerHTML = html; }catch(e){ log('TB load err: ' + e.message); } }
+document.getElementById('btn-load-trial').onclick = loadTrialBalance;
+
+/* -----------------------
+   Utility: refresh many lists
+   ----------------------- */
+async function loadJournalEntries(){ await loadJournalEntries; } // placeholder to avoid lint issues
+async function loadAll(){ await Promise.all([loadCustomers(), loadInvoices(), loadPayments(), loadBills(), loadProducts(), loadCOA(), loadJournalEntries(), loadTrialBalance()]); }
+
+async function refreshDashboard(){
+  // quick KPIs: sum of invoices (month), payments this month, AR total
+  try{
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const monthStart = `${yyyy}-${mm}-01`;
+    const { data:invoices } = await client.from('sales_invoices').select('total_amount').gte('invoice_date', monthStart);
+    const sumSales = (invoices||[]).reduce((s,r)=>s + Number(r.total_amount||0),0);
+    document.getElementById('dash-sales').textContent = sumSales.toFixed(2);
+    const { data:payments } = await client.from('payments').select('amount').gte('payment_date', monthStart);
+    const sumPayments = (payments||[]).reduce((s,r)=>s + Number(r.amount||0),0);
+    document.getElementById('dash-collections').textContent = sumPayments.toFixed(2);
+    // AR outstanding
+    const { data:ar } = await client.from('sales_invoices').select('residual');
+    const arSum = (ar||[]).reduce((s,r)=>s + Number(r.residual||0),0);
+    document.getElementById('dash-ar').textContent = arSum.toFixed(2);
+  }catch(e){ log('Dashboard error: ' + e.message); }
+}
+
+/* -----------------------
+   Fix small broken references previously declared
+   ----------------------- */
+async function loadJournalEntriesAndRender(){
+  // fetch and render JE
+  try{
+    const { data } = await client.from('journal_entries').select('*').order('je_date',{ascending:false}).limit(500);
+    const div = document.getElementById('je-list');
+    if(!data || data.length===0){ div.innerHTML = '<div class="small muted">No journal entries</div>'; return; }
+    let html = '<table><thead><tr><th>JE</th><th>Date</th><th>Account</th><th>Partner</th><th>Debit</th><th>Credit</th></tr></thead><tbody>';
+    data.forEach(r=> html += `<tr><td class="mono">${r.je_id}</td><td>${r.je_date}</td><td>${r.account_code}</td><td>${r.partner_id||''}</td><td>${r.debit||0}</td><td>${r.credit||0}</td></tr>`);
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }catch(e){ log('JE render err: ' + e.message); }
+}
+
+/* fix function name conflict */
+async function loadJournalEntries(){ await loadJournalEntriesAndRender(); }
+
+/* -----------------------
+   Hook to auto refresh some lists when visible
+   ----------------------- */
+setInterval(()=>{ if(client){ loadCustomers(); loadInvoices(); loadPayments(); loadBills(); loadProducts(); loadCOA(); loadJournalEntries(); loadTrialBalance(); refreshDashboard(); } }, 30000);
+
+</script>
 </body>
 </html>
