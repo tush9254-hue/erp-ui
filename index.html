@@ -36,23 +36,93 @@
 
 <div class="grid">
   <div>
-    <!-- AUTH -->
-    <div class="card">
-      <h3>Authentication</h3>
-      <div id="auth-forms">
-        <div class="row">
-          <input id="email" placeholder="Email" />
-          <input id="password" placeholder="Password" type="password" />
-          <button id="btn-signup">Sign Up</button>
-          <button id="btn-signin">Sign In</button>
-        </div>
-        <div class="muted" style="margin-top:8px">Sign up/sign in is optional for now; the anon key still allows DB access for testing.</div>
-      </div>
-      <div id="auth-actions" class="hidden row" style="margin-top:10px;">
-        <button id="btn-signout">Sign Out</button>
-        <button id="btn-refresh">Refresh Data</button>
-      </div>
-    </div>
+    /*******************************
+ * AUTHENTICATION (Supabase Auth)
+ *******************************/
+
+/* 1️⃣ SIGN UP */
+document.getElementById("btn-signup").onclick = async () => {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  if (!email || !password) {
+    alert("Enter email and password");
+    return;
+  }
+
+  const { data, error } = await client.auth.signUp({
+    email: email,
+    password: password
+  });
+
+  if (error) {
+    alert(error.message);
+    log("Sign-up error: " + error.message);
+    return;
+  }
+
+  log("Sign-up successful. Check your email to confirm.");
+  alert("Account created! Please check your email for verification.");
+};
+
+/* 2️⃣ SIGN IN */
+document.getElementById("btn-signin").onclick = async () => {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  if (!email || !password) {
+    alert("Enter email and password");
+    return;
+  }
+
+  const { data, error } = await client.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if (error) {
+    alert(error.message);
+    log("Sign-in error: " + error.message);
+    return;
+  }
+
+  log("Signed in as: " + data.user.email);
+  setUserUI(data.user);
+};
+
+/* 3️⃣ SIGN OUT */
+document.getElementById("btn-signout").onclick = async () => {
+  await client.auth.signOut();
+  log("Signed out.");
+  setUserUI(null);
+};
+
+/* 4️⃣ AUTO RESTORE SESSION */
+client.auth.onAuthStateChange((event, session) => {
+  if (session && session.user) {
+    setUserUI(session.user);
+    log("Restored session for: " + session.user.email);
+  } else {
+    setUserUI();
+  }
+});
+
+/* 5️⃣ UPDATE UI WHEN SIGNED IN/OUT */
+function setUserUI(user = null) {
+  const authForms = document.getElementById("auth-forms");
+  const authActions = document.getElementById("auth-actions");
+  const info = document.getElementById("auth-info");
+
+  if (user) {
+    authForms.classList.add("hidden");
+    authActions.classList.remove("hidden");
+    info.textContent = "Signed in as " + user.email;
+  } else {
+    authForms.classList.remove("hidden");
+    authActions.classList.add("hidden");
+    info.textContent = "Not signed in";
+  }
+}
 
     <!-- CUSTOMERS -->
     <div class="card">
@@ -350,3 +420,4 @@ document.getElementById('btn-load-trial').onclick = async () => {
 </script>
 </body>
 </html>
+
