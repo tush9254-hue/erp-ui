@@ -1,13 +1,167 @@
 <!doctype html>
-<html>
-<body>
-<h2>Supabase Test Page</h2>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Simple Accounting ERP (Supabase)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <!-- Correct Supabase library -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+  <style>
+    body{font-family:Arial, sans-serif;margin:0;padding:20px;background:#f5f7fb}
+    header{display:flex;gap:12px;align-items:center;margin-bottom:18px}
+    .card{background:white;border-radius:10px;padding:14px;box-shadow:0 6px 18px rgba(20,20,50,.06);margin-bottom:14px}
+    input,select,button{padding:8px;border-radius:6px;border:1px solid #d8dde6;font-size:14px}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:14px}
+    .row{display:flex;gap:8px;align-items:center}
+    .mono{font-family:monospace;background:#eef;padding:4px 8px;border-radius:6px}
+    .muted{color:#7b8591;font-size:13px}
+    .hidden{display:none}
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h2>Starter Accounting ERP</h2>
+  <div id="auth-info" class="muted"></div>
+</header>
+
+<div class="grid">
+  <div>
+
+    <!-- AUTH -->
+    <div class="card">
+      <h3>Authentication</h3>
+      <div id="auth-forms">
+        <div class="row">
+          <input id="email" placeholder="Email">
+          <input id="password" placeholder="Password" type="password">
+          <button id="btn-signup">Sign Up</button>
+          <button id="btn-signin">Sign In</button>
+        </div>
+      </div>
+      <div id="auth-actions" class="hidden row" style="margin-top:10px;">
+        <button id="btn-signout">Sign Out</button>
+        <button id="btn-refresh">Refresh</button>
+      </div>
+    </div>
+
+    <!-- CUSTOMERS -->
+    <div class="card">
+      <h3>Customers</h3>
+      <div class="row">
+        <input id="cust-id" placeholder="Customer ID">
+        <input id="cust-name" placeholder="Customer Name">
+        <button id="btn-add-customer">Add</button>
+      </div>
+      <div id="customers-list"></div>
+    </div>
+
+    <!-- INVOICES -->
+    <div class="card">
+      <h3>Sales Invoices</h3>
+      <div class="row">
+        <input id="inv-id" placeholder="Invoice ID">
+        <input id="inv-date" type="date">
+        <select id="inv-customer"><option value="">Choose customer</option></select>
+        <input id="inv-amount" type="number" placeholder="Amount">
+        <button id="btn-add-invoice">Create</button>
+      </div>
+      <div id="invoices-list"></div>
+    </div>
+
+    <!-- PAYMENTS -->
+    <div class="card">
+      <h3>Payments</h3>
+      <div class="row">
+        <input id="pay-id" placeholder="Payment ID">
+        <input id="pay-date" type="date">
+        <select id="pay-customer"><option value="">Partner</option></select>
+        <input id="pay-amount" type="number" placeholder="Amount">
+        <select id="pay-type">
+          <option value="Customer">Customer</option>
+          <option value="Supplier">Supplier</option>
+        </select>
+        <button id="btn-add-payment">Record</button>
+      </div>
+      <div id="payments-list"></div>
+    </div>
+
+    <!-- PAYMENT ALLOCATION -->
+    <div class="card">
+      <h3>Allocate Payment</h3>
+      <div class="row">
+        <select id="alloc-payment"><option value="">Select payment</option></select>
+        <button id="btn-load-invoices">Load Invoices</button>
+      </div>
+      <div id="alloc-invoices"></div>
+      <div class="row" style="margin-top:10px;">
+        <button id="btn-apply-allocation">Apply</button>
+        <span id="alloc-status" class="muted"></span>
+      </div>
+    </div>
+
+    <!-- TRIAL BALANCE -->
+    <div class="card">
+      <h3>Trial Balance</h3>
+      <button id="btn-load-trial">Refresh</button>
+      <div id="trial-list"></div>
+    </div>
+
+  </div>
+
+  <div>
+
+    <!-- SUPABASE CONFIG -->
+    <div class="card">
+      <h3>Supabase Config</h3>
+      <input id="supabase-url" placeholder="SUPABASE_URL" style="width:100%;margin-bottom:8px;">
+      <input id="supabase-key" placeholder="SUPABASE_ANON_KEY" style="width:100%;">
+      <button id="btn-init" style="margin-top:10px;">Initialize Client</button>
+      <div class="muted" style="margin-top:10px;">Paste your Supabase URL + anon key.</div>
+    </div>
+
+    <!-- LOG -->
+    <div class="card">
+      <h3>Log</h3>
+      <pre id="log" style="height:300px;overflow:auto;background:#eef;padding:8px;"></pre>
+    </div>
+
+  </div>
+</div>
 
 <script>
-  console.log("Supabase object =", supabase);
-  document.body.innerHTML += "<pre>Supabase loaded: " + (typeof supabase) + "</pre>";
+let client = null;
+
+/* LOGGING */
+function log(msg){
+  document.getElementById("log").textContent += msg + "\n";
+}
+
+/* INIT SUPABASE */
+document.getElementById("btn-init").onclick = async () => {
+  const url = document.getElementById("supabase-url").value.trim();
+  const key = document.getElementById("supabase-key").value.trim();
+
+  if (!url || !key){
+    alert("Enter SUPABASE_URL and SUPABASE_ANON_KEY");
+    return;
+  }
+
+  client = supabase.createClient(url, key);
+  log("Supabase client created.");
+
+  const { data, error } = await client.from("customers").select("*").limit(1);
+  if (error){
+    log("Error: " + error.message);
+  } else {
+    log("Connected to Supabase successfully.");
+  }
+};
 </script>
 
 </body>
