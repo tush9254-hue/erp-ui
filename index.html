@@ -5,24 +5,24 @@
   <title>Simple Accounting ERP (Supabase)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Correct Supabase library -->
+  <!-- Supabase JS v2 (Correct CDN) -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <style>
-    body{font-family:Arial, sans-serif;margin:0;padding:20px;background:#f5f7fb}
-    header{display:flex;gap:12px;align-items:center;margin-bottom:18px}
-    .card{background:white;border-radius:10px;padding:14px;box-shadow:0 6px 18px rgba(20,20,50,.06);margin-bottom:14px}
-    input,select,button{padding:8px;border-radius:6px;border:1px solid #d8dde6;font-size:14px}
-    table{width:100%;border-collapse:collapse;margin-top:8px}
-    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
-    .grid{display:grid;grid-template-columns:1fr 320px;gap:14px}
-    .row{display:flex;gap:8px;align-items:center}
-    .mono{font-family:monospace;background:#eef;padding:4px 8px;border-radius:6px}
-    .muted{color:#7b8591;font-size:13px}
-    .hidden{display:none}
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f7fb; }
+    header { display: flex; gap: 12px; align-items: center; margin-bottom: 18px; }
+    .card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 6px 18px rgba(20,20,50,.06); margin-bottom: 14px; }
+    input, select, button { padding: 8px; border-radius: 6px; border: 1px solid #d8dde6; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { padding: 8px; border-bottom: 1px solid #eee; }
+    .grid { display: grid; grid-template-columns: 1fr 320px; gap: 14px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .mono { font-family: monospace; background: #eef; padding: 4px 8px; border-radius: 6px; }
+    .muted { color: #7b8591; font-size: 13px; }
+    .hidden { display: none; }
   </style>
-</head>
 
+</head>
 <body>
 
 <header>
@@ -31,6 +31,8 @@
 </header>
 
 <div class="grid">
+
+  <!-- LEFT SIDE -->
   <div>
 
     <!-- AUTH -->
@@ -91,7 +93,7 @@
       <div id="payments-list"></div>
     </div>
 
-    <!-- PAYMENT ALLOCATION -->
+    <!-- ALLOCATION -->
     <div class="card">
       <h3>Allocate Payment</h3>
       <div class="row">
@@ -114,6 +116,7 @@
 
   </div>
 
+  <!-- RIGHT SIDE -->
   <div>
 
     <!-- SUPABASE CONFIG -->
@@ -135,15 +138,19 @@
 </div>
 
 <script>
-let client = null;
 
 /* LOGGING */
 function log(msg){
   document.getElementById("log").textContent += msg + "\n";
 }
 
-/* INIT SUPABASE */
+let client = null;
+
+/***********************
+ * INIT SUPABASE
+ ***********************/
 document.getElementById("btn-init").onclick = async () => {
+
   const url = document.getElementById("supabase-url").value.trim();
   const key = document.getElementById("supabase-key").value.trim();
 
@@ -153,6 +160,7 @@ document.getElementById("btn-init").onclick = async () => {
   }
 
   client = supabase.createClient(url, key);
+
   log("Supabase client created.");
 
   const { data, error } = await client.from("customers").select("*").limit(1);
@@ -160,8 +168,336 @@ document.getElementById("btn-init").onclick = async () => {
     log("Error: " + error.message);
   } else {
     log("Connected to Supabase successfully.");
+    loadCustomers();
+    loadInvoices();
+    loadPayments();
   }
 };
+
+/***********************
+ * CUSTOMERS
+ ***********************/
+async function loadCustomers() {
+  const { data, error } = await client.from("customers").select("*").order("customer_id");
+
+  const div = document.getElementById("customers-list");
+
+  if (error) {
+    log("Error loading customers: " + error.message);
+    div.innerHTML = "<div style='color:red'>Could not load customers.</div>";
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    div.innerHTML = "<div class='muted'>No customers added yet.</div>";
+    return;
+  }
+
+  let html = "<table><tr><th>ID</th><th>Name</th></tr>";
+
+  for (const c of data) {
+    html += `<tr><td class="mono">${c.customer_id}</td><td>${c.name}</td></tr>`;
+  }
+
+  html += "</table>";
+  div.innerHTML = html;
+
+  // UPDATE CUSTOMER DROPDOWNS
+  const invSelect = document.getElementById("inv-customer");
+  const paySelect = document.getElementById("pay-customer");
+
+  invSelect.innerHTML = "<option value=''>Choose customer</option>";
+  paySelect.innerHTML = "<option value=''>Choose partner</option>";
+
+  data.forEach(c => {
+    const opt = new Option(`${c.customer_id} — ${c.name}`, c.customer_id);
+    invSelect.add(opt);
+    paySelect.add(new Option(`${c.customer_id} — ${c.name}`, c.customer_id));
+  });
+
+  log("Customers loaded.");
+}
+
+document.getElementById("btn-add-customer").onclick = async () => {
+  const id = document.getElementById("cust-id").value.trim();
+  const name = document.getElementById("cust-name").value.trim();
+
+  if (!id || !name) {
+    alert("Customer ID and Name required.");
+    return;
+  }
+
+  const { error } = await client.from("customers").insert({ customer_id: id, name });
+
+  if (error) { log("Error adding customer: " + error.message); return; }
+
+  log("Customer added: " + id);
+  document.getElementById("cust-id").value = "";
+  document.getElementById("cust-name").value = "";
+
+  loadCustomers();
+};
+
+/***********************
+ * INVOICES
+ ***********************/
+async function loadInvoices() {
+  const { data, error } = await client
+    .from("sales_invoices")
+    .select("*")
+    .order("invoice_date", { ascending: false });
+
+  const div = document.getElementById("invoices-list");
+
+  if (error) { div.innerHTML = "Error loading invoices"; return; }
+  if (!data || data.length === 0) { div.innerHTML = "No invoices yet."; return; }
+
+  let html = "<table><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Residual</th></tr>";
+
+  for (const inv of data) {
+    html += `<tr>
+      <td class="mono">${inv.invoice_id}</td>
+      <td>${inv.invoice_date}</td>
+      <td>${inv.customer_id}</td>
+      <td>${inv.total_amount}</td>
+      <td>${inv.residual}</td>
+    </tr>`;
+  }
+
+  html += "</table>";
+  div.innerHTML = html;
+}
+
+document.getElementById("btn-add-invoice").onclick = async () => {
+
+  const invoice_id = document.getElementById("inv-id").value.trim();
+  const invoice_date = document.getElementById("inv-date").value;
+  const customer_id = document.getElementById("inv-customer").value;
+  const amount = parseFloat(document.getElementById("inv-amount").value);
+
+  if (!invoice_id || !invoice_date || !customer_id || !amount){
+    alert("Fill all invoice fields.");
+    return;
+  }
+
+  const payload = {
+    invoice_id,
+    invoice_date,
+    customer_id,
+    total_amount: amount,
+    residual: amount,
+    status: "Posted"
+  };
+
+  const { error } = await client.from("sales_invoices").insert(payload);
+
+  if (error) { alert(error.message); return; }
+
+  log("Invoice created: " + invoice_id);
+
+  document.getElementById("inv-id").value = "";
+  document.getElementById("inv-amount").value = "";
+
+  loadInvoices();
+};
+
+/***********************
+ * PAYMENTS
+ ***********************/
+async function loadPayments() {
+  const { data, error } = await client.from("payments").select("*").order("payment_date", { ascending: false });
+
+  const div = document.getElementById("payments-list");
+  const allocSelect = document.getElementById("alloc-payment");
+
+  allocSelect.innerHTML = "<option value=''>Select payment</option>";
+
+  if (error) { div.innerHTML = "Error loading payments"; return; }
+
+  if (!data || data.length === 0) {
+    div.innerHTML = "No payments yet.";
+    return;
+  }
+
+  let html = "<table><tr><th>ID</th><th>Date</th><th>Partner</th><th>Amount</th><th>Status</th></tr>";
+
+  for (const p of data) {
+    html += `<tr>
+      <td class="mono">${p.payment_id}</td>
+      <td>${p.payment_date}</td>
+      <td>${p.partner_id}</td>
+      <td>${p.amount}</td>
+      <td>${p.status}</td>
+    </tr>`;
+
+    allocSelect.add(new Option(
+      `${p.payment_id} — ${p.partner_id} — ${p.amount}`,
+      p.payment_id
+    ));
+  }
+
+  html += "</table>";
+  div.innerHTML = html;
+}
+
+document.getElementById("btn-add-payment").onclick = async () => {
+
+  const payment_id = document.getElementById("pay-id").value.trim();
+  const payment_date = document.getElementById("pay-date").value;
+  const partner_id = document.getElementById("pay-customer").value;
+  const partner_type = document.getElementById("pay-type").value;
+  const amount = parseFloat(document.getElementById("pay-amount").value);
+
+  if (!payment_id || !payment_date || !partner_id || !amount){
+    alert("Fill all payment fields.");
+    return;
+  }
+
+  const payload = {
+    payment_id,
+    payment_date,
+    partner_id,
+    partner_type,
+    amount,
+    status: "Unallocated"
+  };
+
+  const { error } = await client.from("payments").insert(payload);
+
+  if (error) { alert(error.message); return; }
+
+  log("Payment recorded: " + payment_id);
+
+  document.getElementById("pay-id").value = "";
+  document.getElementById("pay-amount").value = "";
+
+  loadPayments();
+};
+
+/***********************
+ * PAYMENT ALLOCATION
+ ***********************/
+document.getElementById("btn-load-invoices").onclick = async () => {
+
+  const payment_id = document.getElementById("alloc-payment").value;
+
+  if (!payment_id){
+    alert("Select a payment.");
+    return;
+  }
+
+  const { data: pay } = await client.from("payments").select("*").eq("payment_id", payment_id).single();
+
+  const { data: invoices } = await client
+    .from("sales_invoices")
+    .select("*")
+    .eq("customer_id", pay.partner_id)
+    .neq("residual", 0)
+    .order("invoice_date");
+
+  const div = document.getElementById("alloc-invoices");
+
+  if (!invoices || invoices.length === 0){
+    div.innerHTML = "No open invoices.";
+    return;
+  }
+
+  let html = "<table><tr><th>Invoice</th><th>Residual</th><th>Allocate</th></tr>";
+
+  for (const inv of invoices){
+    html += `<tr>
+      <td class="mono">${inv.invoice_id}</td>
+      <td>${inv.residual}</td>
+      <td><input type='number' class='alloc-input' data-invoice='${inv.invoice_id}' max='${inv.residual}'></td>
+    </tr>`;
+  }
+
+  html += "</table>";
+
+  div.innerHTML = html;
+};
+
+document.getElementById("btn-apply-allocation").onclick = async () => {
+
+  const payment_id = document.getElementById("alloc-payment").value;
+
+  const inputs = [...document.querySelectorAll(".alloc-input")];
+
+  let allocations = [];
+
+  for (let input of inputs) {
+    const amt = parseFloat(input.value);
+    if (amt > 0){
+      allocations.push({
+        invoice_id: input.dataset.invoice,
+        allocated_amount: amt
+      });
+    }
+  }
+
+  if (allocations.length === 0){
+    alert("Enter allocation amounts.");
+    return;
+  }
+
+  // Apply Allocations
+  for (const row of allocations) {
+
+    await client.from("allocations").insert({
+      allocation_id: payment_id + "-" + row.invoice_id,
+      payment_id,
+      invoice_id: row.invoice_id,
+      allocated_amount: row.allocated_amount,
+      allocation_date: new Date().toISOString().slice(0,10)
+    });
+
+    // Update invoice residual
+    const { data: invoice } = await client
+      .from("sales_invoices")
+      .select("*")
+      .eq("invoice_id", row.invoice_id)
+      .single();
+
+    const newResidual = invoice.residual - row.allocated_amount;
+
+    await client.from("sales_invoices").update({
+      residual: newResidual,
+      status: newResidual <= 0 ? "Paid" : "PartPaid"
+    }).eq("invoice_id", row.invoice_id);
+  }
+
+  log("Allocation applied.");
+
+  loadInvoices();
+  loadPayments();
+};
+
+/***********************
+ * TRIAL BALANCE
+ ***********************/
+document.getElementById("btn-load-trial").onclick = async () => {
+  const { data, error } = await client.from("trial_balance").select("*");
+
+  const div = document.getElementById("trial-list");
+
+  if (error){ div.innerHTML = "Error loading trial balance"; return; }
+
+  let html = "<table><tr><th>Account</th><th>Name</th><th>Debit</th><th>Credit</th><th>Balance</th></tr>";
+
+  for (const r of data){
+    html += `<tr>
+      <td class="mono">${r.account_code}</td>
+      <td>${r.account_name}</td>
+      <td>${r.debit_total}</td>
+      <td>${r.credit_total}</td>
+      <td>${r.balance}</td>
+    </tr>`;
+  }
+
+  html += "</table>";
+  div.innerHTML = html;
+};
+
 </script>
 
 </body>
