@@ -2,53 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Simple Accounting ERP (Supabase)</title>
+  <title>Starter Accounting ERP (Supabase) — Clean CDN</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Supabase JS v2 (Correct CDN) -->
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <!-- Load Supabase as an ES module (esm.sh). This avoids the Edge tracking/storage warnings. -->
+  <script type="module">
+    // load supabase as an ES module and expose a factory to the page
+    import * as supabaseLib from 'https://esm.sh/@supabase/supabase-js@2';
+    // expose the factory to the global window so the normal script can use it
+    window.createSupabaseClientFromESM = supabaseLib.createClient;
+  </script>
 
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f7fb; }
-    header { display: flex; gap: 12px; align-items: center; margin-bottom: 18px; }
-    .card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 6px 18px rgba(20,20,50,.06); margin-bottom: 14px; }
-    input, select, button { padding: 8px; border-radius: 6px; border: 1px solid #d8dde6; font-size: 14px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { padding: 8px; border-bottom: 1px solid #eee; }
-    .grid { display: grid; grid-template-columns: 1fr 320px; gap: 14px; }
-    .row { display: flex; gap: 8px; align-items: center; }
-    .mono { font-family: monospace; background: #eef; padding: 4px 8px; border-radius: 6px; }
-    .muted { color: #7b8591; font-size: 13px; }
-    .hidden { display: none; }
+    body { font-family: Arial, sans-serif; margin:0; padding:20px; background:#f5f7fb; }
+    header { display:flex; gap:12px; align-items:center; margin-bottom:18px; }
+    .card { background:white; border-radius:10px; padding:14px; box-shadow:0 6px 18px rgba(20,20,50,.06); margin-bottom:14px; }
+    input,select,button { padding:8px; border-radius:6px; border:1px solid #d8dde6; font-size:14px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { padding:8px; border-bottom:1px solid #eee; text-align:left; }
+    .grid { display:grid; grid-template-columns:1fr 340px; gap:14px; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .mono { font-family:monospace; background:#eef; padding:4px 8px; border-radius:6px; }
+    .muted { color:#7b8591; font-size:13px; }
+    .hidden { display:none; }
   </style>
-
 </head>
-<body>
 
+<body>
 <header>
   <h2>Starter Accounting ERP</h2>
   <div id="auth-info" class="muted"></div>
 </header>
 
 <div class="grid">
-
-  <!-- LEFT SIDE -->
   <div>
-
     <!-- AUTH -->
     <div class="card">
       <h3>Authentication</h3>
       <div id="auth-forms">
         <div class="row">
-          <input id="email" placeholder="Email">
-          <input id="password" placeholder="Password" type="password">
+          <input id="email" placeholder="Email" />
+          <input id="password" placeholder="Password" type="password" />
           <button id="btn-signup">Sign Up</button>
           <button id="btn-signin">Sign In</button>
         </div>
+        <div class="muted" style="margin-top:8px">Sign up/sign in is optional for now; the anon key still allows DB access for testing.</div>
       </div>
       <div id="auth-actions" class="hidden row" style="margin-top:10px;">
         <button id="btn-signout">Sign Out</button>
-        <button id="btn-refresh">Refresh</button>
+        <button id="btn-refresh">Refresh Data</button>
       </div>
     </div>
 
@@ -56,41 +58,38 @@
     <div class="card">
       <h3>Customers</h3>
       <div class="row">
-        <input id="cust-id" placeholder="Customer ID">
-        <input id="cust-name" placeholder="Customer Name">
+        <input id="cust-id" placeholder="Customer ID (C0001)" />
+        <input id="cust-name" placeholder="Customer Name" />
         <button id="btn-add-customer">Add</button>
       </div>
-      <div id="customers-list"></div>
+      <div id="customers-list" style="margin-top:10px"></div>
     </div>
 
     <!-- INVOICES -->
     <div class="card">
       <h3>Sales Invoices</h3>
       <div class="row">
-        <input id="inv-id" placeholder="Invoice ID">
-        <input id="inv-date" type="date">
+        <input id="inv-id" placeholder="Invoice ID (INV-2025-0001)" />
+        <input id="inv-date" type="date" />
         <select id="inv-customer"><option value="">Choose customer</option></select>
-        <input id="inv-amount" type="number" placeholder="Amount">
+        <input id="inv-amount" type="number" placeholder="Total amount" />
         <button id="btn-add-invoice">Create</button>
       </div>
-      <div id="invoices-list"></div>
+      <div id="invoices-list" style="margin-top:10px"></div>
     </div>
 
     <!-- PAYMENTS -->
     <div class="card">
       <h3>Payments</h3>
       <div class="row">
-        <input id="pay-id" placeholder="Payment ID">
-        <input id="pay-date" type="date">
+        <input id="pay-id" placeholder="Payment ID (PAY-001)" />
+        <input id="pay-date" type="date" />
         <select id="pay-customer"><option value="">Partner</option></select>
-        <input id="pay-amount" type="number" placeholder="Amount">
-        <select id="pay-type">
-          <option value="Customer">Customer</option>
-          <option value="Supplier">Supplier</option>
-        </select>
+        <input id="pay-amount" type="number" placeholder="Amount" />
+        <select id="pay-type"><option>Customer</option><option>Supplier</option></select>
         <button id="btn-add-payment">Record</button>
       </div>
-      <div id="payments-list"></div>
+      <div id="payments-list" style="margin-top:10px"></div>
     </div>
 
     <!-- ALLOCATION -->
@@ -98,12 +97,12 @@
       <h3>Allocate Payment</h3>
       <div class="row">
         <select id="alloc-payment"><option value="">Select payment</option></select>
-        <button id="btn-load-invoices">Load Invoices</button>
+        <button id="btn-load-invoices">Load invoices</button>
       </div>
-      <div id="alloc-invoices"></div>
-      <div class="row" style="margin-top:10px;">
-        <button id="btn-apply-allocation">Apply</button>
-        <span id="alloc-status" class="muted"></span>
+      <div id="alloc-invoices" style="margin-top:8px"></div>
+      <div class="row" style="margin-top:8px;">
+        <button id="btn-apply-allocation">Apply Allocation</button>
+        <div id="alloc-status" class="muted"></div>
       </div>
     </div>
 
@@ -111,394 +110,243 @@
     <div class="card">
       <h3>Trial Balance</h3>
       <button id="btn-load-trial">Refresh</button>
-      <div id="trial-list"></div>
+      <div id="trial-list" style="margin-top:8px"></div>
     </div>
-
   </div>
 
-  <!-- RIGHT SIDE -->
+  <!-- right column -->
   <div>
-
-    <!-- SUPABASE CONFIG -->
     <div class="card">
       <h3>Supabase Config</h3>
-      <input id="supabase-url" placeholder="SUPABASE_URL" style="width:100%;margin-bottom:8px;">
-      <input id="supabase-key" placeholder="SUPABASE_ANON_KEY" style="width:100%;">
-      <button id="btn-init" style="margin-top:10px;">Initialize Client</button>
-      <div class="muted" style="margin-top:10px;">Paste your Supabase URL + anon key.</div>
+      <input id="supabase-url" placeholder="SUPABASE_URL" style="width:100%;margin-bottom:8px" />
+      <input id="supabase-key" placeholder="SUPABASE_ANON_KEY" style="width:100%" />
+      <button id="btn-init" style="margin-top:10px">Initialize Client</button>
+      <div class="muted" style="margin-top:10px">Paste your Supabase Project URL & anon key then click Initialize.</div>
     </div>
 
-    <!-- LOG -->
     <div class="card">
       <h3>Log</h3>
-      <pre id="log" style="height:300px;overflow:auto;background:#eef;padding:8px;"></pre>
+      <pre id="log" style="height:320px;overflow:auto;background:#eef;padding:8px;"></pre>
     </div>
-
   </div>
 </div>
 
 <script>
+/* ----------
+  This script uses the ESM loader that was put into window.createSupabaseClientFromESM
+  (see the top <script type="module"> import). That avoids Edge storage/tracking warnings.
+ ---------- */
 
-/* LOGGING */
 function log(msg){
-  document.getElementById("log").textContent += msg + "\n";
+  const box = document.getElementById('log');
+  box.textContent = msg + "\n" + box.textContent;
 }
 
 let client = null;
 
-/***********************
- * INIT SUPABASE
- ***********************/
-document.getElementById("btn-init").onclick = async () => {
+/* ---------- Initialize Supabase client (using the ESM factory) ---------- */
+document.getElementById('btn-init').onclick = async () => {
+  const url = document.getElementById('supabase-url').value.trim();
+  const key = document.getElementById('supabase-key').value.trim();
+  if(!url || !key){ alert('Enter SUPABASE_URL and SUPABASE_ANON_KEY'); return; }
+  if(!window.createSupabaseClientFromESM){ alert('Supabase loader not available'); return; }
 
-  const url = document.getElementById("supabase-url").value.trim();
-  const key = document.getElementById("supabase-key").value.trim();
+  // create the client using the ESM factory exposed on window
+  client = window.createSupabaseClientFromESM(url, key);
 
-  if (!url || !key){
-    alert("Enter SUPABASE_URL and SUPABASE_ANON_KEY");
-    return;
-  }
-
-  client = supabase.createClient(url, key);
-
-  log("Supabase client created.");
-
-  const { data, error } = await client.from("customers").select("*").limit(1);
-  if (error){
-    log("Error: " + error.message);
-  } else {
-    log("Connected to Supabase successfully.");
-    loadCustomers();
-    loadInvoices();
-    loadPayments();
-  }
+  log('Supabase client created.');
+  // quick test read to confirm the connection
+  const { data, error } = await client.from('customers').select('*').limit(1);
+  if(error){ log('Connection error: ' + error.message); }
+  else { log('Connected to Supabase successfully.'); initializeModules(); }
 };
 
-/***********************
- * CUSTOMERS
- ***********************/
-async function loadCustomers() {
-  const { data, error } = await client.from("customers").select("*").order("customer_id");
-
-  const div = document.getElementById("customers-list");
-
-  if (error) {
-    log("Error loading customers: " + error.message);
-    div.innerHTML = "<div style='color:red'>Could not load customers.</div>";
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    div.innerHTML = "<div class='muted'>No customers added yet.</div>";
-    return;
-  }
-
-  let html = "<table><tr><th>ID</th><th>Name</th></tr>";
-
-  for (const c of data) {
-    html += `<tr><td class="mono">${c.customer_id}</td><td>${c.name}</td></tr>`;
-  }
-
-  html += "</table>";
-  div.innerHTML = html;
-
-  // UPDATE CUSTOMER DROPDOWNS
-  const invSelect = document.getElementById("inv-customer");
-  const paySelect = document.getElementById("pay-customer");
-
-  invSelect.innerHTML = "<option value=''>Choose customer</option>";
-  paySelect.innerHTML = "<option value=''>Choose partner</option>";
-
-  data.forEach(c => {
-    const opt = new Option(`${c.customer_id} — ${c.name}`, c.customer_id);
-    invSelect.add(opt);
-    paySelect.add(new Option(`${c.customer_id} — ${c.name}`, c.customer_id));
-  });
-
-  log("Customers loaded.");
+/* ---------- Initialize modules after client is ready ---------- */
+function initializeModules(){
+  loadCustomers();
+  loadInvoices();
+  loadPayments();
 }
 
-document.getElementById("btn-add-customer").onclick = async () => {
-  const id = document.getElementById("cust-id").value.trim();
-  const name = document.getElementById("cust-name").value.trim();
+/* ========== Customers ========== */
+async function loadCustomers(){
+  const div = document.getElementById('customers-list');
+  const selInv = document.getElementById('inv-customer');
+  const selPay = document.getElementById('pay-customer');
 
-  if (!id || !name) {
-    alert("Customer ID and Name required.");
-    return;
+  try{
+    const { data, error } = await client.from('customers').select('*').order('customer_id');
+    if(error) throw error;
+    selInv.innerHTML = '<option value="">Choose customer</option>';
+    selPay.innerHTML = '<option value="">Partner</option>';
+
+    if(!data || data.length===0){
+      div.innerHTML = '<div class="muted">No customers yet.</div>';
+      return;
+    }
+
+    let html = '<table><thead><tr><th>ID</th><th>Name</th></tr></thead><tbody>';
+    data.forEach(c=>{
+      html += `<tr><td class="mono">${c.customer_id}</td><td>${c.name}</td></tr>`;
+      selInv.add(new Option(`${c.customer_id} — ${c.name}`, c.customer_id));
+      selPay.add(new Option(`${c.customer_id} — ${c.name}`, c.customer_id));
+    });
+    html += '</tbody></table>';
+    div.innerHTML = html;
+    log('Customers loaded.');
+  }catch(e){
+    log('Load customers error: ' + e.message);
+    div.innerHTML = '<div style="color:red">Error loading customers</div>';
   }
+}
 
-  const { error } = await client.from("customers").insert({ customer_id: id, name });
-
-  if (error) { log("Error adding customer: " + error.message); return; }
-
-  log("Customer added: " + id);
-  document.getElementById("cust-id").value = "";
-  document.getElementById("cust-name").value = "";
-
+document.getElementById('btn-add-customer').onclick = async () => {
+  const id = document.getElementById('cust-id').value.trim();
+  const name = document.getElementById('cust-name').value.trim();
+  if(!id || !name){ alert('Provide ID and name'); return; }
+  const { error } = await client.from('customers').insert([{ customer_id: id, name }]);
+  if(error){ alert(error.message); log('Add customer error: ' + error.message); return; }
+  log('Customer added: ' + id);
+  document.getElementById('cust-id').value=''; document.getElementById('cust-name').value='';
   loadCustomers();
 };
 
-/***********************
- * INVOICES
- ***********************/
-async function loadInvoices() {
-  const { data, error } = await client
-    .from("sales_invoices")
-    .select("*")
-    .order("invoice_date", { ascending: false });
-
-  const div = document.getElementById("invoices-list");
-
-  if (error) { div.innerHTML = "Error loading invoices"; return; }
-  if (!data || data.length === 0) { div.innerHTML = "No invoices yet."; return; }
-
-  let html = "<table><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Residual</th></tr>";
-
-  for (const inv of data) {
-    html += `<tr>
-      <td class="mono">${inv.invoice_id}</td>
-      <td>${inv.invoice_date}</td>
-      <td>${inv.customer_id}</td>
-      <td>${inv.total_amount}</td>
-      <td>${inv.residual}</td>
-    </tr>`;
+/* ========== Invoices ========== */
+async function loadInvoices(){
+  const div = document.getElementById('invoices-list');
+  try{
+    const { data, error } = await client.from('sales_invoices').select('*').order('invoice_date', { ascending:false });
+    if(error) throw error;
+    if(!data || data.length===0){ div.innerHTML = '<div class="muted">No invoices yet.</div>'; return; }
+    let html = '<table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Residual</th></tr></thead><tbody>';
+    data.forEach(inv=>{
+      html += `<tr><td class="mono">${inv.invoice_id}</td><td>${inv.invoice_date}</td><td>${inv.customer_id}</td><td>${inv.total_amount}</td><td>${inv.residual}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    div.innerHTML = html;
+    log('Invoices loaded.');
+  }catch(e){
+    div.innerHTML = '<div style="color:red">Error loading invoices</div>';
+    log('Load invoices error: ' + e.message);
   }
-
-  html += "</table>";
-  div.innerHTML = html;
 }
 
-document.getElementById("btn-add-invoice").onclick = async () => {
-
-  const invoice_id = document.getElementById("inv-id").value.trim();
-  const invoice_date = document.getElementById("inv-date").value;
-  const customer_id = document.getElementById("inv-customer").value;
-  const amount = parseFloat(document.getElementById("inv-amount").value);
-
-  if (!invoice_id || !invoice_date || !customer_id || !amount){
-    alert("Fill all invoice fields.");
-    return;
-  }
-
-  const payload = {
-    invoice_id,
-    invoice_date,
-    customer_id,
-    total_amount: amount,
-    residual: amount,
-    status: "Posted"
-  };
-
-  const { error } = await client.from("sales_invoices").insert(payload);
-
-  if (error) { alert(error.message); return; }
-
-  log("Invoice created: " + invoice_id);
-
-  document.getElementById("inv-id").value = "";
-  document.getElementById("inv-amount").value = "";
-
+document.getElementById('btn-add-invoice').onclick = async () => {
+  const invoice_id = document.getElementById('inv-id').value.trim();
+  const invoice_date = document.getElementById('inv-date').value;
+  const customer_id = document.getElementById('inv-customer').value;
+  const amount = parseFloat(document.getElementById('inv-amount').value || '0');
+  if(!invoice_id || !invoice_date || !customer_id || !amount){ alert('Fill all invoice fields'); return; }
+  const payload = { invoice_id, invoice_date, customer_id, total_amount: amount, residual: amount, status:'Posted' };
+  const { error } = await client.from('sales_invoices').insert([payload]);
+  if(error){ alert(error.message); log('Create invoice error: ' + error.message); return; }
+  log('Invoice created: ' + invoice_id);
+  document.getElementById('inv-id').value=''; document.getElementById('inv-amount').value='';
   loadInvoices();
 };
 
-/***********************
- * PAYMENTS
- ***********************/
-async function loadPayments() {
-  const { data, error } = await client.from("payments").select("*").order("payment_date", { ascending: false });
-
-  const div = document.getElementById("payments-list");
-  const allocSelect = document.getElementById("alloc-payment");
-
-  allocSelect.innerHTML = "<option value=''>Select payment</option>";
-
-  if (error) { div.innerHTML = "Error loading payments"; return; }
-
-  if (!data || data.length === 0) {
-    div.innerHTML = "No payments yet.";
-    return;
+/* ========== Payments ========== */
+async function loadPayments(){
+  const div = document.getElementById('payments-list');
+  const allocSel = document.getElementById('alloc-payment');
+  allocSel.innerHTML = '<option value="">Select payment</option>';
+  try{
+    const { data, error } = await client.from('payments').select('*').order('payment_date', { ascending:false });
+    if(error) throw error;
+    if(!data || data.length===0){ div.innerHTML = '<div class="muted">No payments yet.</div>'; return; }
+    let html = '<table><thead><tr><th>ID</th><th>Date</th><th>Partner</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
+    data.forEach(p=>{
+      html += `<tr><td class="mono">${p.payment_id}</td><td>${p.payment_date}</td><td>${p.partner_id}</td><td>${p.amount}</td><td>${p.status}</td></tr>`;
+      allocSel.add(new Option(`${p.payment_id} — ${p.partner_id} — ${p.amount}`, p.payment_id));
+    });
+    html += '</tbody></table>';
+    div.innerHTML = html;
+    log('Payments loaded.');
+  }catch(e){
+    div.innerHTML = '<div style="color:red">Error loading payments</div>';
+    log('Load payments error: ' + e.message);
   }
-
-  let html = "<table><tr><th>ID</th><th>Date</th><th>Partner</th><th>Amount</th><th>Status</th></tr>";
-
-  for (const p of data) {
-    html += `<tr>
-      <td class="mono">${p.payment_id}</td>
-      <td>${p.payment_date}</td>
-      <td>${p.partner_id}</td>
-      <td>${p.amount}</td>
-      <td>${p.status}</td>
-    </tr>`;
-
-    allocSelect.add(new Option(
-      `${p.payment_id} — ${p.partner_id} — ${p.amount}`,
-      p.payment_id
-    ));
-  }
-
-  html += "</table>";
-  div.innerHTML = html;
 }
 
-document.getElementById("btn-add-payment").onclick = async () => {
-
-  const payment_id = document.getElementById("pay-id").value.trim();
-  const payment_date = document.getElementById("pay-date").value;
-  const partner_id = document.getElementById("pay-customer").value;
-  const partner_type = document.getElementById("pay-type").value;
-  const amount = parseFloat(document.getElementById("pay-amount").value);
-
-  if (!payment_id || !payment_date || !partner_id || !amount){
-    alert("Fill all payment fields.");
-    return;
-  }
-
-  const payload = {
-    payment_id,
-    payment_date,
-    partner_id,
-    partner_type,
-    amount,
-    status: "Unallocated"
-  };
-
-  const { error } = await client.from("payments").insert(payload);
-
-  if (error) { alert(error.message); return; }
-
-  log("Payment recorded: " + payment_id);
-
-  document.getElementById("pay-id").value = "";
-  document.getElementById("pay-amount").value = "";
-
+document.getElementById('btn-add-payment').onclick = async () => {
+  const pid = document.getElementById('pay-id').value.trim();
+  const pdate = document.getElementById('pay-date').value;
+  const partner = document.getElementById('pay-customer').value;
+  const ptype = document.getElementById('pay-type').value;
+  const amount = parseFloat(document.getElementById('pay-amount').value || '0');
+  if(!pid || !pdate || !partner || !amount){ alert('Fill all payment fields'); return; }
+  const { error } = await client.from('payments').insert([{ payment_id: pid, payment_date: pdate, partner_id: partner, partner_type: ptype, amount, status:'Unallocated' }]);
+  if(error){ alert(error.message); log('Record payment error: ' + error.message); return; }
+  log('Payment recorded: ' + pid);
+  document.getElementById('pay-id').value=''; document.getElementById('pay-amount').value='';
   loadPayments();
 };
 
-/***********************
- * PAYMENT ALLOCATION
- ***********************/
-document.getElementById("btn-load-invoices").onclick = async () => {
-
-  const payment_id = document.getElementById("alloc-payment").value;
-
-  if (!payment_id){
-    alert("Select a payment.");
-    return;
+/* ========== Allocation ========== */
+document.getElementById('btn-load-invoices').onclick = async () => {
+  const payment_id = document.getElementById('alloc-payment').value;
+  if(!payment_id){ alert('Select a payment first'); return; }
+  try{
+    const { data:pay } = await client.from('payments').select('*').eq('payment_id', payment_id).single();
+    const { data: invoices } = await client.from('sales_invoices').select('*').eq('customer_id', pay.partner_id).neq('residual', 0).order('invoice_date');
+    const div = document.getElementById('alloc-invoices');
+    if(!invoices || invoices.length===0){ div.innerHTML = '<div class="muted">No open invoices for this partner.</div>'; return; }
+    let html = '<table><thead><tr><th>Invoice</th><th>Residual</th><th>Allocate</th></tr></thead><tbody>';
+    invoices.forEach(inv=>{
+      html += `<tr><td class="mono">${inv.invoice_id}</td><td>${inv.residual}</td><td><input type="number" class="alloc-input" data-invoice="${inv.invoice_id}" max="${inv.residual}" step="0.01"></td></tr>`;
+    });
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }catch(e){
+    log('Load invoices for allocation error: ' + e.message);
   }
-
-  const { data: pay } = await client.from("payments").select("*").eq("payment_id", payment_id).single();
-
-  const { data: invoices } = await client
-    .from("sales_invoices")
-    .select("*")
-    .eq("customer_id", pay.partner_id)
-    .neq("residual", 0)
-    .order("invoice_date");
-
-  const div = document.getElementById("alloc-invoices");
-
-  if (!invoices || invoices.length === 0){
-    div.innerHTML = "No open invoices.";
-    return;
-  }
-
-  let html = "<table><tr><th>Invoice</th><th>Residual</th><th>Allocate</th></tr>";
-
-  for (const inv of invoices){
-    html += `<tr>
-      <td class="mono">${inv.invoice_id}</td>
-      <td>${inv.residual}</td>
-      <td><input type='number' class='alloc-input' data-invoice='${inv.invoice_id}' max='${inv.residual}'></td>
-    </tr>`;
-  }
-
-  html += "</table>";
-
-  div.innerHTML = html;
 };
 
-document.getElementById("btn-apply-allocation").onclick = async () => {
-
-  const payment_id = document.getElementById("alloc-payment").value;
-
-  const inputs = [...document.querySelectorAll(".alloc-input")];
-
-  let allocations = [];
-
-  for (let input of inputs) {
-    const amt = parseFloat(input.value);
-    if (amt > 0){
-      allocations.push({
-        invoice_id: input.dataset.invoice,
-        allocated_amount: amt
-      });
+document.getElementById('btn-apply-allocation').onclick = async () => {
+  const payment_id = document.getElementById('alloc-payment').value;
+  if(!payment_id){ alert('Select payment'); return; }
+  const inputs = Array.from(document.querySelectorAll('.alloc-input'));
+  const allocations = [];
+  let totalAlloc = 0;
+  for(const inp of inputs){
+    const val = parseFloat(inp.value || '0');
+    if(val > 0){
+      allocations.push({ invoice_id: inp.dataset.invoice, allocated_amount: val });
+      totalAlloc += val;
     }
   }
-
-  if (allocations.length === 0){
-    alert("Enter allocation amounts.");
-    return;
+  if(allocations.length === 0){ alert('Enter allocation amounts'); return; }
+  // optionally: verify totalAlloc <= payment amount
+  // apply allocations one by one (simple approach)
+  for(const a of allocations){
+    await client.from('allocations').insert([{ allocation_id: payment_id + '-' + a.invoice_id, payment_id, invoice_id: a.invoice_id, allocated_amount: a.allocated_amount, allocation_date: new Date().toISOString().slice(0,10) }]);
+    // reduce invoice residual
+    const { data:inv } = await client.from('sales_invoices').select('*').eq('invoice_id', a.invoice_id).single();
+    const newResidual = (inv.residual || 0) - a.allocated_amount;
+    await client.from('sales_invoices').update({ residual: newResidual, status: newResidual <= 0 ? 'Paid' : 'PartPaid' }).eq('invoice_id', a.invoice_id);
   }
-
-  // Apply Allocations
-  for (const row of allocations) {
-
-    await client.from("allocations").insert({
-      allocation_id: payment_id + "-" + row.invoice_id,
-      payment_id,
-      invoice_id: row.invoice_id,
-      allocated_amount: row.allocated_amount,
-      allocation_date: new Date().toISOString().slice(0,10)
-    });
-
-    // Update invoice residual
-    const { data: invoice } = await client
-      .from("sales_invoices")
-      .select("*")
-      .eq("invoice_id", row.invoice_id)
-      .single();
-
-    const newResidual = invoice.residual - row.allocated_amount;
-
-    await client.from("sales_invoices").update({
-      residual: newResidual,
-      status: newResidual <= 0 ? "Paid" : "PartPaid"
-    }).eq("invoice_id", row.invoice_id);
-  }
-
-  log("Allocation applied.");
-
+  log('Allocations applied.');
   loadInvoices();
   loadPayments();
 };
 
-/***********************
- * TRIAL BALANCE
- ***********************/
-document.getElementById("btn-load-trial").onclick = async () => {
-  const { data, error } = await client.from("trial_balance").select("*");
-
-  const div = document.getElementById("trial-list");
-
-  if (error){ div.innerHTML = "Error loading trial balance"; return; }
-
-  let html = "<table><tr><th>Account</th><th>Name</th><th>Debit</th><th>Credit</th><th>Balance</th></tr>";
-
-  for (const r of data){
-    html += `<tr>
-      <td class="mono">${r.account_code}</td>
-      <td>${r.account_name}</td>
-      <td>${r.debit_total}</td>
-      <td>${r.credit_total}</td>
-      <td>${r.balance}</td>
-    </tr>`;
+/* ========== Trial balance ========= */
+document.getElementById('btn-load-trial').onclick = async () => {
+  const div = document.getElementById('trial-list');
+  try{
+    const { data, error } = await client.from('trial_balance').select('*').order('account_code');
+    if(error) throw error;
+    if(!data || data.length===0){ div.innerHTML = '<div class="muted">No trial balance rows.</div>'; return; }
+    let html = '<table><thead><tr><th>Account</th><th>Name</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>';
+    data.forEach(r => { html += `<tr><td class="mono">${r.account_code}</td><td>${r.account_name}</td><td>${r.debit_total}</td><td>${r.credit_total}</td><td>${r.balance}</td></tr>`; });
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }catch(e){
+    div.innerHTML = '<div style="color:red">Error loading trial balance</div>';
+    log('Trial load error: ' + e.message);
   }
-
-  html += "</table>";
-  div.innerHTML = html;
 };
 
 </script>
-
 </body>
 </html>
